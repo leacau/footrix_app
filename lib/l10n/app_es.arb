@@ -1,0 +1,23 @@
+{
+  "@@locale": "es",
+  "appTitle": "Footrix",
+  "loginWelcome": "Predice. Compite. Escala.",
+  "emailHint": "Correo electrónico",
+  "passwordHint": "Contraseña",
+  "loginButton": "Iniciar sesión",
+  "googleLogin": "Continuar con Google",
+  "noAccount": "¿No tienes cuenta?",
+  "signUp": "Registrarse",
+  "errorRequired": "Este campo es obligatorio",
+  "errorEmail": "Ingresa un correo válido",
+  "errorPassword": "Mínimo 6 caracteres",
+  "errorAuth": "Error: {error}",
+  "@errorAuth": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "signOut": "Cerrar sesión"
+}

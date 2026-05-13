@@ -1,0 +1,23 @@
+{
+  "@@locale": "en",
+  "appTitle": "Footrix",
+  "loginWelcome": "Predict. Compete. Climb.",
+  "emailHint": "Email",
+  "passwordHint": "Password",
+  "loginButton": "Sign In",
+  "googleLogin": "Continue with Google",
+  "noAccount": "Don't have an account?",
+  "signUp": "Sign Up",
+  "errorRequired": "This field is required",
+  "errorEmail": "Enter a valid email",
+  "errorPassword": "Min 6 characters",
+  "errorAuth": "Error: {error}",
+  "@errorAuth": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "signOut": "Sign Out"
+}

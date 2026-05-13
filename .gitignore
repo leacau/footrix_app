@@ -1,0 +1,42 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+*.iml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase Functions (node_modules se reconstruye)
+functions/node_modules/
+functions/lib/
+!functions/src/
+!functions/package.json
+!functions/tsconfig.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Secrets (NUNCA subir esto)
+**/serviceAccountKey.json
+**/google-services.json
+**/GoogleService-Info.plist
+
+*node_modules/
+*.dart_tool/
