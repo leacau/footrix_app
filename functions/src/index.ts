@@ -4,8 +4,10 @@ import * as functions from 'firebase-functions';
 admin.initializeApp();
 
 /**
- * 🔥 Se ejecuta AUTOMÁTICAMENTE cuando un partido cambia a "finished"
- * Calcula puntos y actualiza rankings en tiempo real.
+ * 🔥 Calcula puntos al finalizar un partido
+ * Reglas simplificadas:
+ * - 3 pts: Resultado exacto
+ * - 1 pt: Acertar ganador/empate (pero no el score exacto)
  */
 export const calculatePointsOnMatchFinish = functions.firestore
 	.document('matches/{matchId}')
@@ -34,7 +36,8 @@ export const calculatePointsOnMatchFinish = functions.firestore
 			const batch = db.batch();
 			let updatedCount = 0;
 
-			predictionsSnap.forEach((doc) => {
+			// ✅ CORRECCIÓN: Usar for...of en lugar de forEach para soportar await
+			for (const doc of predictionsSnap.docs) {
 				const p = doc.data();
 				let pts = 0;
 
@@ -44,30 +47,20 @@ export const calculatePointsOnMatchFinish = functions.firestore
 				const homeScore = (after.homeScore as number) || 0;
 				const awayScore = (after.awayScore as number) || 0;
 
-				// 🎯 3 pts: resultado exacto
+				// 🎯 3 pts: Resultado EXACTO
 				if (homeGuess === homeScore && awayGuess === awayScore) {
 					pts = 3;
 				}
-				// 🎯 1 pt: acertar ganador/empate
+				// 🎯 1 pt: Acertar el RESULTADO (ganador/empate)
 				else if (
+					// Local gana en ambos
 					(homeGuess > awayGuess && homeScore > awayScore) ||
+					// Visita gana en ambos
 					(homeGuess < awayGuess && homeScore < awayScore) ||
+					// Empate en ambos
 					(homeGuess === awayGuess && homeScore === awayScore)
 				) {
 					pts = 1;
-				}
-
-				// 🎯 1 pt extra: goles totales (±1 tolerancia)
-				const totalGuess =
-					(p.totalGoalsGuess as number) || homeGuess + awayGuess;
-				const totalReal = homeScore + awayScore;
-				if (Math.abs(totalGuess - totalReal) <= 1) {
-					pts += 1;
-				}
-
-				// 🎯 1 pt extra: acertar si hay penales
-				if (p.penaltiesGuess === after.hasPenalties) {
-					pts += 1;
 				}
 
 				// Actualizar predicción
@@ -79,13 +72,31 @@ export const calculatePointsOnMatchFinish = functions.firestore
 
 				// Sumar puntos al usuario
 				const userRef = db.collection('users').doc(p.userId as string);
-				batch.update(userRef, {
-					totalPoints: admin.firestore.FieldValue.increment(pts),
-					updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-				});
+
+				// ✅ CORRECCIÓN: await dentro de for...of (sí funciona)
+				const userDoc = await userRef.get();
+
+				if (userDoc.exists) {
+					batch.update(userRef, {
+						totalPoints: admin.firestore.FieldValue.increment(pts),
+						updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+					});
+				} else {
+					// Fallback: crear usuario si no existe (por seguridad)
+					batch.set(
+						userRef,
+						{
+							uid: p.userId,
+							totalPoints: pts,
+							createdAt: admin.firestore.FieldValue.serverTimestamp(),
+							updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+						},
+						{ merge: true },
+					);
+				}
 
 				updatedCount++;
-			});
+			}
 
 			await batch.commit();
 			console.log(

@@ -67,6 +67,7 @@ class _PredictionFormState extends State<PredictionForm> {
               child: TextField(
                 controller: _homeCtrl,
                 keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
                 decoration: const InputDecoration(labelText: 'Local'),
               ),
             ),
@@ -75,6 +76,7 @@ class _PredictionFormState extends State<PredictionForm> {
               child: TextField(
                 controller: _awayCtrl,
                 keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
                 decoration: const InputDecoration(labelText: 'Visita'),
               ),
             ),
