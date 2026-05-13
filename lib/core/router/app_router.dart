@@ -5,6 +5,8 @@ import '../../features/auth/auth_provider.dart';
 import '../../features/matches/fixture_screen.dart';
 import '../../features/matches/match_detail_screen.dart';
 import '../../features/rankings/leaderboard_screen.dart';
+import '../../features/profile/profile_screen.dart';
+import '../../features/groups/groups_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -29,6 +31,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: '/rankings', builder: (_, _) => const LeaderboardScreen()),
+      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+      GoRoute(path: '/groups', builder: (_, _) => const GroupsScreen()),
     ],
   );
 });

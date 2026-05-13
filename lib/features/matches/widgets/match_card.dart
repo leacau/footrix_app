@@ -1,5 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import '../models/match_model.dart';
 import '../models/prediction_model.dart';
@@ -22,6 +23,10 @@ class _MatchCardState extends State<MatchCard> {
   @override
   void initState() {
     super.initState();
+    _loadPrediction();
+  }
+
+  void _loadPrediction() {
     if (widget.existingPrediction != null) {
       _homeCtrl.text = widget.existingPrediction!.homeGuess.toString();
       _awayCtrl.text = widget.existingPrediction!.awayGuess.toString();
@@ -35,20 +40,51 @@ class _MatchCardState extends State<MatchCard> {
     super.dispose();
   }
 
+  bool _canEdit() {
+    final now = DateTime.now();
+    final twelveHoursBefore = widget.match.kickoff.subtract(
+      const Duration(hours: 12),
+    );
+    return now.isBefore(twelveHoursBefore);
+  }
+
+  // ✅ FUNCIÓN AUXILIAR: Muestra SnackBar sin usar context después de await
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return; // Usamos 'mounted' del State, no context
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade400 : null,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Future<void> _savePrediction() async {
-    if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) {
+    if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) return;
+
+    // Validación cliente-side de 12hs (síncrona, sin async gap)
+    if (!_canEdit() && widget.existingPrediction != null) {
+      _showMessage('🔒 Cerrado 12hs antes');
       return;
     }
 
     setState(() => _isLoading = true);
+
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
+        _showMessage('❌ No autenticado', isError: true);
         return;
       }
 
-      final predictionId = '${user.uid}_${widget.match.id}';
+      // ✅ Usamos predictionId para evitar warning de "unused"
+      // final predictionId = '${user.uid}_${widget.match.id}';
 
+      // =====================================================
+      // OPCIÓN A: Escritura directa a Firestore (Comentada)
+      // =====================================================
+      /*
       await FirebaseFirestore.instance
           .collection('predictions')
           .doc(predictionId)
@@ -59,24 +95,40 @@ class _MatchCardState extends State<MatchCard> {
             'awayGuess': int.parse(_awayCtrl.text),
             'status': 'pending',
             'submittedAt': FieldValue.serverTimestamp(),
+            'kickoffTime': widget.match.kickoff.millisecondsSinceEpoch,
           }, SetOptions(merge: true));
+      
+      _showMessage('✅ Guardada');
+      if (mounted) setState(() => _loadPrediction());
+      */
 
+      // =====================================================
+      // OPCIÓN B: Usar Firebase Functions (ACTIVA)
+      // =====================================================
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('validatePredictionEdit')
+          .call({
+            'matchId': widget.match.id,
+            'homeGuess': int.parse(_homeCtrl.text),
+            'awayGuess': int.parse(_awayCtrl.text),
+          });
+
+      // ✅ Llamamos a función auxiliar que verifica 'mounted' internamente
+      if (result.data['success'] == true) {
+        _showMessage('✅ Guardada');
+      } else {
+        _showMessage('❌ ${result.data['error']}', isError: true);
+      }
+
+      // ✅ Actualizar UI solo si el widget sigue montado
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Guardada'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-        setState(() {});
+        setState(() => _loadPrediction());
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('❌ $e')));
-      }
+      // ✅ Manejo de errores con función auxiliar
+      _showMessage('❌ $e', isError: true);
     } finally {
+      // ✅ Resetear loading solo si el widget sigue montado
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -85,11 +137,14 @@ class _MatchCardState extends State<MatchCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isLocked = widget.match.isLocked;
+    final isLocked = widget.match.isLocked || !_canEdit();
     final isFinished = widget.match.status == MatchStatus.finished;
     final hasPrediction = widget.existingPrediction != null;
 
     return Card(
+      key: ValueKey(
+        '${widget.match.id}_${widget.existingPrediction?.homeGuess}_${widget.existingPrediction?.awayGuess}',
+      ),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -97,6 +152,7 @@ class _MatchCardState extends State<MatchCard> {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
+            // Encabezado
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -121,6 +177,8 @@ class _MatchCardState extends State<MatchCard> {
               ],
             ),
             const SizedBox(height: 8),
+
+            // FILA 1: Equipos + Inputs/Resultado
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -140,7 +198,11 @@ class _MatchCardState extends State<MatchCard> {
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: _buildScoreArea(isFinished, isLocked, hasPrediction),
+                  child: _buildPredictionArea(
+                    isFinished,
+                    isLocked,
+                    hasPrediction,
+                  ),
                 ),
                 Expanded(
                   child: Text(
@@ -151,13 +213,51 @@ class _MatchCardState extends State<MatchCard> {
                 ),
               ],
             ),
+
+            // FILA 2: Resultado real (solo si finalizó)
+            if (isFinished) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.emoji_events,
+                      color: Colors.amber,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Resultado: ${widget.match.homeScore ?? 0} - ${widget.match.awayScore ?? 0}',
+                      style: TextStyle(
+                        color: Colors.green.shade800,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildScoreArea(bool isFinished, bool isLocked, bool hasPrediction) {
+  Widget _buildPredictionArea(
+    bool isFinished,
+    bool isLocked,
+    bool hasPrediction,
+  ) {
     if (isFinished) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -178,7 +278,7 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
-    if (hasPrediction) {
+    if (hasPrediction && isLocked) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -200,61 +300,75 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
-    if (isLocked && !hasPrediction) {
-      return const Icon(Icons.lock_outline, color: Colors.red, size: 20);
+    if (hasPrediction && !isLocked) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _inputBox(_homeCtrl),
+          const Text('-'),
+          _inputBox(_awayCtrl),
+          IconButton(
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.edit, color: Colors.orange),
+            iconSize: 18,
+            padding: EdgeInsets.zero,
+            onPressed: _isLoading ? null : _savePrediction,
+            tooltip: 'Modificar',
+          ),
+        ],
+      );
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 35,
-          child: TextField(
-            controller: _homeCtrl,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-            ),
+    if (!isLocked) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _inputBox(_homeCtrl),
+          const Text('-'),
+          _inputBox(_awayCtrl),
+          IconButton(
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_circle, color: Colors.blue),
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            onPressed: _isLoading ? null : _savePrediction,
           ),
+        ],
+      );
+    }
+
+    return const Icon(Icons.lock_outline, color: Colors.red, size: 20);
+  }
+
+  Widget _inputBox(TextEditingController ctrl) {
+    return SizedBox(
+      width: 35,
+      child: TextField(
+        controller: ctrl,
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
         ),
-        const Text('-'),
-        SizedBox(
-          width: 35,
-          child: TextField(
-            controller: _awayCtrl,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-            ),
-          ),
-        ),
-        IconButton(
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.check_circle, color: Colors.blue),
-          iconSize: 20,
-          padding: EdgeInsets.zero,
-          onPressed: _isLoading ? null : _savePrediction,
-        ),
-      ],
+      ),
     );
   }
 
   String _timeLeft(DateTime kickoff) {
     final diff = kickoff.difference(DateTime.now());
-    if (diff.inMinutes < 0) {
-      return 'En juego';
-    }
+    if (diff.inMinutes < 0) return 'En juego';
     if (diff.inHours < 24) {
       return 'Hoy ${kickoff.hour}:${kickoff.minute.toString().padLeft(2, '0')}';
     }

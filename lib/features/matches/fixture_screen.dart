@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'matches_provider.dart';
 import 'models/prediction_model.dart';
 import 'widgets/match_card.dart';
@@ -19,13 +20,24 @@ class FixtureScreen extends ConsumerWidget {
         title: const Text('Fixture'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.group),
+            tooltip: 'Grupos',
+            onPressed: () => context.push('/groups'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.person),
+            tooltip: 'Perfil',
+            onPressed: () => context.push('/profile'),
+          ),
+          IconButton(
             icon: const Icon(Icons.emoji_events),
-            onPressed: () => Navigator.pushNamed(context, '/rankings'),
+            tooltip: 'Rankings',
+            onPressed: () => context.push('/rankings'),
           ),
         ],
       ),
       body: matchesAsync.when(
-        // ✅ CORRECCIÓN: parámetro nombrado 'data:' (NO positional)
+        // ✅ CORRECCIÓN: parámetro nombrado 'data:'
         data: (matches) {
           if (matches.isEmpty) {
             return const Center(child: Text('📭 Cargando partidos...'));
@@ -37,6 +49,8 @@ class FixtureScreen extends ConsumerWidget {
               final match = matches[index];
 
               return StreamBuilder<DocumentSnapshot>(
+                // ✅ CORRECCIÓN: Key única basada en matchId + userId para forzar rebuild
+                key: ValueKey('${match.id}_${user?.uid}'),
                 stream: user != null
                     ? FirebaseFirestore.instance
                           .collection('predictions')
