@@ -56,7 +56,6 @@ class AuthController {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'country': null,
-      'continent': null,
       'privateGroups': [],
     });
 

@@ -1,4 +1,27 @@
 {
+	"hosting": {
+		"public": "build/web",
+		"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+		"rewrites": [{ "source": "**", "destination": "/index.html" }],
+		"headers": [
+			{
+				"source": "flutter_service_worker.js",
+				"headers": [
+					{
+						"key": "Cache-Control",
+						"value": "no-cache, no-store, must-revalidate"
+					},
+					{ "key": "Content-Type", "value": "application/javascript" }
+				]
+			},
+			{
+				"source": "**/*.@(js|css)",
+				"headers": [{ "key": "Cache-Control", "value": "max-age=31536000" }]
+			}
+		],
+		"cleanUrls": true,
+		"trailingSlash": false
+	},
 	"functions": [
 		{
 			"source": "functions",
@@ -13,6 +36,10 @@
 			"predeploy": [],
 			"runtime": "nodejs20"
 		}
-	]
+	],
+	"firestore": {
+		"rules": "firestore.rules",
+		"indexes": "firestore.indexes.json"
+	}
 }
 

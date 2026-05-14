@@ -7,7 +7,8 @@ import 'models/prediction_model.dart';
 final matchesProvider = StreamProvider<List<FootballMatch>>((ref) {
   return FirebaseFirestore.instance
       .collection('matches')
-      .orderBy('kickoff')
+      // ✅ CAMBIO AQUÍ: ordenar por fecha ascendente (false)
+      .orderBy('kickoff', descending: false)
       .snapshots()
       .map(
         (snapshot) => snapshot.docs

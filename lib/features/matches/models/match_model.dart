@@ -14,6 +14,7 @@ class FootballMatch {
   final int? homeYellowCards;
   final int? awayYellowCards;
   final bool hasPenalties;
+  final int? lockHoursBefore;
 
   FootballMatch({
     required this.id,
@@ -27,6 +28,7 @@ class FootballMatch {
     this.homeYellowCards,
     this.awayYellowCards,
     this.hasPenalties = false,
+    this.lockHoursBefore,
   });
 
   factory FootballMatch.fromFirestore(DocumentSnapshot doc) {
@@ -43,6 +45,7 @@ class FootballMatch {
       homeYellowCards: data['homeYellowCards'] as int?,
       awayYellowCards: data['awayYellowCards'] as int?,
       hasPenalties: data['hasPenalties'] ?? false,
+      lockHoursBefore: data['lockHoursBefore'] as int?,
     );
   }
 

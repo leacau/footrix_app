@@ -7,21 +7,53 @@ import '../../features/matches/match_detail_screen.dart';
 import '../../features/rankings/leaderboard_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/groups/groups_screen.dart';
+import '../../features/notifications/notification_handler.dart';
+import '../../features/trivia/trivia_screen.dart';
+import '../../features/home/home_screen.dart';
+import '../../features/admin/admin_screen.dart'; // <--- AGREGAR
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
+
     redirect: (context, state) {
+      // 1. Verificar si hay una ruta pendiente de una notificación
+      final pendingRoute = NotificationHandler.getPendingRoute();
+      if (pendingRoute != null) {
+        NotificationHandler.clearPendingRoute();
+        return pendingRoute;
+      }
+
+      // 2. Lógica de auth normal
       final auth = ref.watch(authProvider);
+
+      // ✅ Caso loading: no redirigir
+      if (auth is AsyncLoading) {
+        return null;
+      }
+
       final isLoggedIn = auth.value != null;
       final isLoggingIn = state.matchedLocation == '/login';
+      final isHomeRoute =
+          state.matchedLocation == '/home' || state.matchedLocation == '/';
 
-      if (!isLoggedIn && !isLoggingIn) return '/login';
-      if (isLoggedIn && isLoggingIn) return '/fixture';
+      if (!isLoggedIn && !isLoggingIn) {
+        return '/login';
+      }
+      if (isLoggedIn && isLoggingIn) {
+        return '/home';
+      }
+      if (isLoggedIn && isHomeRoute) return null;
       return null;
     },
+
     routes: [
+      GoRoute(path: '/admin', builder: (_, _) => const AdminScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+
+      GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
+
       GoRoute(path: '/fixture', builder: (_, _) => const FixtureScreen()),
       GoRoute(
         path: '/match/:matchId',
@@ -33,6 +65,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/rankings', builder: (_, _) => const LeaderboardScreen()),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/groups', builder: (_, _) => const GroupsScreen()),
+      GoRoute(path: '/trivia', builder: (_, _) => const TriviaScreen()),
     ],
+
+    // ✅ Removido RouteObserver problemático
   );
 });

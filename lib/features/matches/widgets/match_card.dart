@@ -26,10 +26,23 @@ class _MatchCardState extends State<MatchCard> {
     _loadPrediction();
   }
 
+  @override
+  void didUpdateWidget(covariant MatchCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.existingPrediction?.id != widget.existingPrediction?.id) {
+      _loadPrediction();
+    }
+  }
+
   void _loadPrediction() {
     if (widget.existingPrediction != null) {
-      _homeCtrl.text = widget.existingPrediction!.homeGuess.toString();
-      _awayCtrl.text = widget.existingPrediction!.awayGuess.toString();
+      // ✅ Solo actualizar si los valores son distintos (evita parpadeo)
+      if (_homeCtrl.text != widget.existingPrediction!.homeGuess.toString()) {
+        _homeCtrl.text = widget.existingPrediction!.homeGuess.toString();
+      }
+      if (_awayCtrl.text != widget.existingPrediction!.awayGuess.toString()) {
+        _awayCtrl.text = widget.existingPrediction!.awayGuess.toString();
+      }
     }
   }
 
@@ -42,10 +55,12 @@ class _MatchCardState extends State<MatchCard> {
 
   bool _canEdit() {
     final now = DateTime.now();
-    final twelveHoursBefore = widget.match.kickoff.subtract(
-      const Duration(hours: 12),
-    );
-    return now.isBefore(twelveHoursBefore);
+
+    // ✅ Usar lockHoursBefore del match, con fallback a 12 si no existe
+    final lockHours = widget.match.lockHoursBefore ?? 12;
+    final lockTime = widget.match.kickoff.subtract(Duration(hours: lockHours));
+
+    return now.isBefore(lockTime);
   }
 
   // ✅ FUNCIÓN AUXILIAR: Muestra SnackBar sin usar context después de await
@@ -258,6 +273,46 @@ class _MatchCardState extends State<MatchCard> {
     bool isLocked,
     bool hasPrediction,
   ) {
+    // ✅ Siempre mostrar la predicción del usuario (si existe)
+    if (hasPrediction) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Fila 1: Predicción del usuario
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _homeCtrl.text,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Text('-'),
+              ),
+              Text(
+                _awayCtrl.text,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (isLocked) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.lock, size: 12, color: Colors.grey),
+              ],
+            ],
+          ),
+        ],
+      );
+    }
+
+    // Si no hay predicción y terminó: mostrar solo resultado real
     if (isFinished) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -278,52 +333,7 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
-    if (hasPrediction && isLocked) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _homeCtrl.text,
-            style: const TextStyle(fontSize: 16, color: Colors.blue),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text('-'),
-          ),
-          Text(
-            _awayCtrl.text,
-            style: const TextStyle(fontSize: 16, color: Colors.blue),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.lock, size: 12, color: Colors.grey),
-        ],
-      );
-    }
-
-    if (hasPrediction && !isLocked) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _inputBox(_homeCtrl),
-          const Text('-'),
-          _inputBox(_awayCtrl),
-          IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.edit, color: Colors.orange),
-            iconSize: 18,
-            padding: EdgeInsets.zero,
-            onPressed: _isLoading ? null : _savePrediction,
-            tooltip: 'Modificar',
-          ),
-        ],
-      );
-    }
-
+    // Si no hay predicción y no terminó: mostrar inputs o candado
     if (!isLocked) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -347,6 +357,7 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
+    // Bloqueado sin predicción
     return const Icon(Icons.lock_outline, color: Colors.red, size: 20);
   }
 

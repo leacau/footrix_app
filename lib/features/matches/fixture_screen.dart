@@ -20,6 +20,12 @@ class FixtureScreen extends ConsumerWidget {
         title: const Text('Fixture'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: 'Inicio',
+            onPressed: () =>
+                context.go('/home'), // go() reemplaza la ruta, no hace push
+          ),
+          IconButton(
             icon: const Icon(Icons.group),
             tooltip: 'Grupos',
             onPressed: () => context.push('/groups'),
@@ -49,8 +55,7 @@ class FixtureScreen extends ConsumerWidget {
               final match = matches[index];
 
               return StreamBuilder<DocumentSnapshot>(
-                // ✅ CORRECCIÓN: Key única basada en matchId + userId para forzar rebuild
-                key: ValueKey('${match.id}_${user?.uid}'),
+                key: ValueKey('pred_${match.id}_${user?.uid}'), // ✅ Key única
                 stream: user != null
                     ? FirebaseFirestore.instance
                           .collection('predictions')
@@ -62,7 +67,10 @@ class FixtureScreen extends ConsumerWidget {
                   if (snapshot.hasData && snapshot.data!.exists) {
                     pred = Prediction.fromFirestore(snapshot.data!);
                   }
-                  return MatchCard(match: match, existingPrediction: pred);
+                  return MatchCard(
+                    match: match,
+                    existingPrediction: pred,
+                  ); // ✅ Pasar predicción actualizada
                 },
               );
             },
