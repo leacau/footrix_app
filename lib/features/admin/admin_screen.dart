@@ -116,7 +116,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
-            value: _lockHours,
+            initialValue: _lockHours,
             decoration: const InputDecoration(
               labelText: 'Bloquear predicciones X horas antes',
             ),

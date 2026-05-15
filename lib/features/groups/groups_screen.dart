@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../leagues/widgets/league_selector.dart';
 import 'groups_provider.dart';
 
 class GroupsScreen extends ConsumerStatefulWidget {
@@ -14,6 +15,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final _nameCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _creating = false;
+  String? _selectedLeagueForGroup;
+  bool _isLeagueExclusive = true;
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +47,40 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         hintText: 'Ej: Oficina, Familia, Amigos',
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    // ✅ Selector de liga (obligatorio)
+                    const Text(
+                      'Liga/Competencia:',
+                      style: TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    LeagueSelector(
+                      selectedLeagueId: _selectedLeagueForGroup,
+                      onLeagueSelected: (value) {
+                        if (context.mounted) {
+                          setState(() => _selectedLeagueForGroup = value);
+                        }
+                      },
+                      showAllOption: false,
+                    ),
+                    const SizedBox(height: 8),
+                    // ✅ Switch para exclusivo de liga
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Solo esta liga'),
+                      subtitle: const Text(
+                        'El ranking solo contará partidos de la liga seleccionada',
+                      ),
+                      value: _isLeagueExclusive,
+                      onChanged: (val) {
+                        if (context.mounted) {
+                          setState(() => _isLeagueExclusive = val);
+                        }
+                      },
+                    ),
                     const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: _creating
+                      onPressed: _creating || _selectedLeagueForGroup == null
                           ? null
                           : () async {
                               if (_nameCtrl.text.trim().isEmpty) return;
@@ -54,13 +88,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                               setState(() => _creating = true);
                               try {
                                 await ref.read(
-                                  createGroupProvider(
-                                    _nameCtrl.text.trim(),
-                                  ).future,
+                                  createGroupProvider((
+                                    name: _nameCtrl.text.trim(),
+                                    leagueId: _selectedLeagueForGroup,
+                                    isLeagueExclusive: _isLeagueExclusive,
+                                  )).future,
                                 );
                                 _nameCtrl.clear();
 
-                                // ✅ CORRECCIÓN: usar context.mounted cuando usás context
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -88,6 +123,17 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                             )
                           : const Text('Crear'),
                     ),
+                    if (_selectedLeagueForGroup == null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '⚠️ Seleccioná una liga para continuar',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -127,7 +173,6 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                                 );
                                 _codeCtrl.clear();
 
-                                // ✅ CORRECCIÓN: usar context.mounted cuando usás context
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -165,10 +210,28 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     itemCount: groups.length,
                     itemBuilder: (_, i) {
                       final g = groups[i];
+                      final leagueName = g['leagueName'] ?? 'Todas las ligas';
+                      final isExclusive = g['isLeagueExclusive'] ?? false;
+
                       return ListTile(
                         title: Text(g['name']),
-                        subtitle: Text('Código: ${g['code']}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Código: ${g['code']}'),
+                            Text(
+                              'Liga: $leagueName${isExclusive ? ' (exclusiva)' : ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
                         trailing: Text('${(g['members'] as List).length} 👥'),
+                        onTap: () {
+                          // Aquí podrías navegar a un detalle del grupo
+                        },
                       );
                     },
                   );
