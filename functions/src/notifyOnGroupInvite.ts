@@ -29,8 +29,13 @@ export const notifyOnGroupInvite = functions.firestore
 				.collection('users')
 				.doc(userId)
 				.get();
+			const tokenDoc = await admin
+				.firestore()
+				.collection('user_tokens')
+				.doc(userId)
+				.get();
 
-			const fcmToken = userDoc.data()?.fcmToken as string | undefined;
+			const fcmToken = tokenDoc.data()?.token as string | undefined;
 			const displayName = (userDoc.data()?.displayName as string) || 'Amigo';
 
 			const title = '👥 ¡Te invitaron!';

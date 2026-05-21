@@ -5,9 +5,10 @@ import 'models/match_model.dart';
 import 'models/prediction_model.dart';
 
 final matchesProvider = StreamProvider<List<FootballMatch>>((ref) {
+  final cutoff = DateTime.now().subtract(const Duration(days: 2));
   return FirebaseFirestore.instance
       .collection('matches')
-      // ✅ CAMBIO AQUÍ: ordenar por fecha ascendente (false)
+      .where('kickoff', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
       .orderBy('kickoff', descending: false)
       .snapshots()
       .map(

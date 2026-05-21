@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../auth/auth_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -9,6 +10,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = FirebaseAuth.instance.currentUser;
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -151,13 +153,14 @@ class HomeScreen extends ConsumerWidget {
                   onTap: () => _showSettingsDialog(context),
                 ),
                 // 🛠️ Panel Admin (solo para usuarios con permisos)
-                _NavCard(
-                  icon: Icons.admin_panel_settings,
-                  title: 'Admin',
-                  subtitle: 'Gestión',
-                  color: Colors.red,
-                  onTap: () => context.push('/admin'),
-                ),
+                if (isAdmin)
+                  _NavCard(
+                    icon: Icons.admin_panel_settings,
+                    title: 'Admin',
+                    subtitle: 'Gestion',
+                    color: Colors.red,
+                    onTap: () => context.push('/admin'),
+                  ),
               ],
             ),
 

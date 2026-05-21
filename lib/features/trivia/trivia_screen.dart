@@ -14,7 +14,9 @@ class TriviaScreen extends ConsumerStatefulWidget {
 class _TriviaScreenState extends ConsumerState<TriviaScreen> {
   TriviaQuestion? _currentQuestion;
   int? _selectedOption;
+  int? _revealedCorrectAnswer;
   bool _answered = false;
+  bool _submitting = false;
   int _timeLeft = 10;
   Timer? _timer;
   String? _feedback;
@@ -51,52 +53,60 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
   }
 
   void _handleTimeout() {
-    if (_answered) return;
+    if (_answered || _submitting) return;
     setState(() {
       _answered = true;
-      _feedback = '⏰ Tiempo agotado';
+      _feedback = 'Tiempo agotado';
       _feedbackColor = Colors.orange;
     });
   }
 
-  void _selectOption(int index) {
-    if (_answered || _currentQuestion == null) return;
+  Future<void> _selectOption(int index) async {
+    if (_answered || _submitting || _currentQuestion == null) return;
 
     setState(() {
       _selectedOption = index;
-      _answered = true;
+      _submitting = true;
       _timer?.cancel();
-
-      final isCorrect = index == _currentQuestion!.correctAnswer;
-      if (isCorrect) {
-        _feedback = '✅ ¡Correcto!';
-        _feedbackColor = Colors.green;
-      } else {
-        _feedback = '❌ Incorrecto';
-        _feedbackColor = Colors.red;
-      }
     });
 
-    _submitAnswer(index);
-  }
-
-  Future<void> _submitAnswer(int selectedOption) async {
-    if (_currentQuestion == null) return;
-
     try {
-      await ref.read(
+      final result = await ref.read(
         submitTriviaAnswerProvider((
           questionId: _currentQuestion!.id,
-          selectedOption: selectedOption,
+          selectedOption: index,
         )).future,
       );
+
+      if (!mounted) return;
+      setState(() {
+        _answered = true;
+        _submitting = false;
+        _revealedCorrectAnswer = result.correctAnswer;
+        if (result.alreadyAnswered) {
+          _feedback = 'Ya habias respondido esta pregunta';
+          _feedbackColor = Colors.orange;
+        } else if (result.isCorrect) {
+          _feedback = 'Correcto: +${result.pointsEarned} pts';
+          _feedbackColor = Colors.green;
+        } else {
+          _feedback = 'Incorrecto';
+          _feedbackColor = Colors.red;
+        }
+      });
     } catch (e) {
-      // ✅ CORRECCIÓN: usar context.mounted cuando usás context
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _selectedOption = null;
+        });
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+      _startTimer();
     }
   }
 
@@ -104,7 +114,9 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
     setState(() {
       _currentQuestion = null;
       _selectedOption = null;
+      _revealedCorrectAnswer = null;
       _answered = false;
+      _submitting = false;
       _feedback = null;
       _feedbackColor = null;
     });
@@ -116,15 +128,13 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
     final questionsAsync = ref.watch(triviaQuestionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('🎮 Trivia Fútbol')),
+      appBar: AppBar(title: const Text('Trivia Futbol')),
       body: questionsAsync.when(
-        // ✅ CORRECCIÓN CLAVE: 'data:' debe estar ESCRITO explícitamente
         data: (questions) {
           if (questions.isEmpty) {
-            return const Center(child: Text('📭 No hay preguntas disponibles'));
+            return const Center(child: Text('No hay preguntas disponibles'));
           }
 
-          // ✅ CORRECCIÓN: usar ??= para evitar warning prefer_conditional_assignment
           _currentQuestion ??=
               questions[DateTime.now().millisecondsSinceEpoch %
                   questions.length];
@@ -133,7 +143,6 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Timer
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -161,8 +170,6 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Pregunta
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -177,19 +184,17 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Opciones
                 ...List.generate(4, (index) {
                   final option = _currentQuestion!.options[index];
                   final isSelected = _selectedOption == index;
-                  final isCorrect = index == _currentQuestion!.correctAnswer;
+                  final isCorrect = _revealedCorrectAnswer == index;
                   final showResult = _answered;
 
                   Color? optionColor;
                   if (showResult) {
                     if (isCorrect) {
                       optionColor = Colors.green.shade100;
-                    } else if (isSelected && !isCorrect) {
+                    } else if (isSelected) {
                       optionColor = Colors.red.shade100;
                     }
                   } else if (isSelected) {
@@ -199,7 +204,9 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: ElevatedButton(
-                      onPressed: _answered ? null : () => _selectOption(index),
+                      onPressed: (_answered || _submitting)
+                          ? null
+                          : () => _selectOption(index),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: optionColor,
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -239,6 +246,12 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                               style: const TextStyle(fontSize: 16),
                             ),
                           ),
+                          if (_submitting && isSelected)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           if (showResult && isCorrect)
                             const Icon(Icons.check_circle, color: Colors.green),
                           if (showResult && isSelected && !isCorrect)
@@ -248,10 +261,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                     ),
                   );
                 }),
-
                 const Spacer(),
-
-                // Feedback
                 if (_feedback != null) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -277,8 +287,6 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
-
-                // Botón siguiente
                 if (_answered)
                   ElevatedButton.icon(
                     onPressed: _nextQuestion,

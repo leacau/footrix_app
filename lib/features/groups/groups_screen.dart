@@ -19,6 +19,13 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   bool _isLeagueExclusive = true;
 
   @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _codeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final groupsAsync = ref.watch(userGroupsProvider);
 
@@ -160,6 +167,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                       ),
                       textCapitalization: TextCapitalization.characters,
                       inputFormatters: [LengthLimitingTextInputFormatter(6)],
+                      onChanged: (_) {
+                        if (mounted) setState(() {});
+                      },
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(

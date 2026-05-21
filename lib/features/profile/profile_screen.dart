@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -47,6 +48,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _triviaStreak = data['triviaStreak'] as int? ?? 0;
         _triviaBestStreak = data['triviaBestStreak'] as int? ?? 0;
         _triviaAnswered = data['triviaAnswered'] as int? ?? 0;
+        if (mounted) setState(() {});
       }
     }
   }
@@ -116,8 +118,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         radius: 40,
                         backgroundColor: Colors.blue.shade100,
                         child: Text(
-                          user?.displayName?.substring(0, 1).toUpperCase() ??
-                              'U',
+                          (user?.displayName?.trim().isNotEmpty ?? false)
+                              ? user!.displayName!
+                                    .trim()
+                                    .substring(0, 1)
+                                    .toUpperCase()
+                              : 'U',
                           style: const TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -184,7 +190,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             // ✅ CORRECCIÓN: Navigator usa context → context.mounted
                             onPressed: () {
                               if (context.mounted) {
-                                Navigator.pushNamed(context, '/trivia');
+                                context.push('/trivia');
                               }
                             },
                             child: const Text('Jugar'),

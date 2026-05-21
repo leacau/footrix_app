@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../leagues/leagues_provider.dart';
 import '../leagues/widgets/league_selector.dart';
+import 'models/match_model.dart'; // ✅ IMPORTANTE: Agregar este import para FootballMatch
 import 'models/prediction_model.dart';
 import 'widgets/match_card.dart';
 
@@ -20,7 +21,6 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Usar provider que soporta filtro por liga
     final matchesAsync = ref.watch(matchesByLeagueProvider(_selectedLeagueId));
     final user = FirebaseAuth.instance.currentUser;
 
@@ -28,7 +28,6 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
       appBar: AppBar(
         title: const Text('Fixture'),
         actions: [
-          // ✅ Selector de ligas en el AppBar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: SizedBox(
@@ -66,7 +65,7 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
         ],
       ),
       body: matchesAsync.when(
-        data: (matches) {
+        data: (List<FootballMatch> matches) {
           if (matches.isEmpty) {
             return Center(
               child: Column(
@@ -119,7 +118,37 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (Object e, StackTrace stack) {
+          // ✅ Log detallado del error
+          debugPrint('❌ ==========================================');
+          debugPrint('❌ Firestore Error: $e');
+          debugPrint('❌ Error type: ${e.runtimeType}');
+          debugPrint('❌ Error message: ${e.toString()}');
+          debugPrint('❌ Stack trace: $stack');
+          debugPrint('❌ ==========================================');
+
+          // ✅ Buscar si hay URL de índice en el mensaje
+          final errorMessage = e.toString();
+          if (errorMessage.contains('console.firebase.google.com')) {
+            debugPrint('🔗 INDEX URL FOUND: $errorMessage');
+          }
+
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text('Error: $e', style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Revisá la consola (F12) para más detalles',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

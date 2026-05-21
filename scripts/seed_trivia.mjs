@@ -104,7 +104,7 @@ async function seedTrivia() {
 
 		triviaQuestions.forEach((q, i) => {
 			const docRef = firestore
-				.collection('triviaQuestions')
+				.collection('trivia_questions')
 				.doc(`question_${i + 1}`);
 
 			batch.set(docRef, {

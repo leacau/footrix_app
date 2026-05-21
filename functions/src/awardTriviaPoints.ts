@@ -7,6 +7,11 @@ export const awardTriviaPoints = functions.firestore
 	.document('trivia_answers/{answerId}')
 	.onCreate(async (snap, context) => {
 		const answer = snap.data();
+		if (answer.serverAwarded === true) {
+			console.log(`Trivia ${context.params.answerId} already awarded by callable`);
+			return null;
+		}
+
 		const userId = answer.userId as string;
 		const questionId = answer.questionId as string;
 		const isCorrect = answer.isCorrect as boolean;

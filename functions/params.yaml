@@ -1,5 +1,5 @@
 # functions/params.yaml
-API_FOOTBALL_KEY:
+THESPORTSDB_BASE_URL:
   type: string
-  default: ''
-  description: 'API key for api-football.com'
+  default: 'https://www.thesportsdb.com/api/v1/json/123'
+  description: 'Base URL for TheSportsDB v1 API'

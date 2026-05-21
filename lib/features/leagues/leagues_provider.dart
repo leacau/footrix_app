@@ -8,13 +8,16 @@ final leaguesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
       .where('active', isEqualTo: true)
       .orderBy('name')
       .snapshots()
-      .map((snap) => snap.docs.map((d) => d.data()).toList());
+      .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
 // ✅ CORRECCIÓN: Devolver List<FootballMatch> en lugar de List<Map>
 final matchesByLeagueProvider =
     StreamProvider.family<List<FootballMatch>, String?>((ref, leagueId) {
-      Query query = FirebaseFirestore.instance.collection('matches');
+      final cutoff = DateTime.now().subtract(const Duration(days: 2));
+      Query query = FirebaseFirestore.instance
+          .collection('matches')
+          .where('kickoff', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff));
 
       if (leagueId != null && leagueId.isNotEmpty) {
         query = query.where('leagueId', isEqualTo: leagueId);

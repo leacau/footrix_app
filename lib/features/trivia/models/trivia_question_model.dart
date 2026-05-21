@@ -4,7 +4,7 @@ class TriviaQuestion {
   final String id;
   final String question;
   final List<String> options;
-  final int correctAnswer; // índice 0-3
+  final int? correctAnswer;
   final String category;
   final int points;
   final bool active;
@@ -14,7 +14,7 @@ class TriviaQuestion {
     required this.id,
     required this.question,
     required this.options,
-    required this.correctAnswer,
+    this.correctAnswer,
     required this.category,
     required this.points,
     required this.active,
@@ -27,7 +27,7 @@ class TriviaQuestion {
       id: doc.id,
       question: data['question'] ?? '',
       options: List<String>.from(data['options'] ?? []),
-      correctAnswer: data['correctAnswer'] ?? 0,
+      correctAnswer: data['correctAnswer'] as int?,
       category: data['category'] ?? 'general',
       points: data['points'] ?? 1,
       active: data['active'] ?? true,
@@ -35,11 +35,26 @@ class TriviaQuestion {
     );
   }
 
+  factory TriviaQuestion.fromCallable(Map<String, dynamic> data) {
+    final createdAtMillis = data['createdAt'];
+    return TriviaQuestion(
+      id: data['id'] as String? ?? '',
+      question: data['question'] as String? ?? '',
+      options: List<String>.from(data['options'] as List? ?? []),
+      category: data['category'] as String? ?? 'general',
+      points: data['points'] as int? ?? 1,
+      active: data['active'] as bool? ?? true,
+      createdAt: createdAtMillis is int
+          ? DateTime.fromMillisecondsSinceEpoch(createdAtMillis)
+          : DateTime.now(),
+    );
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'question': question,
       'options': options,
-      'correctAnswer': correctAnswer,
+      if (correctAnswer != null) 'correctAnswer': correctAnswer,
       'category': category,
       'points': points,
       'active': active,

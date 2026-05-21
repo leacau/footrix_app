@@ -99,11 +99,12 @@ class NotificationService {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await FirebaseFirestore.instance
-            .collection('users')
+            .collection('user_tokens')
             .doc(user.uid)
-            .update({
-              'fcmToken': token,
-              'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+            .set({
+              'token': token,
+              'platform': kIsWeb ? 'web' : 'mobile',
+              'updatedAt': FieldValue.serverTimestamp(),
             });
         debugPrint('✅ Token guardado en Firestore para user ${user.uid}');
       }

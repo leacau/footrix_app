@@ -69,22 +69,29 @@ export const calculatePointsOnMatchFinish = functions.firestore
 				const userDoc = await userRef.get();
 
 				if (userDoc.exists) {
-					batch.update(userRef, {
+					const updateData: admin.firestore.UpdateData<admin.firestore.DocumentData> = {
 						totalPoints: admin.firestore.FieldValue.increment(pts),
 						updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-					});
+					};
+					if (typeof after.leagueId === 'string' && after.leagueId.length > 0) {
+						updateData[`leagueStats.${after.leagueId}.points`] =
+							admin.firestore.FieldValue.increment(pts);
+					}
+					batch.update(userRef, updateData);
 				} else {
 					// Fallback: crear usuario si no existe (por seguridad)
-					batch.set(
-						userRef,
-						{
-							uid: p.userId,
-							totalPoints: pts,
-							createdAt: admin.firestore.FieldValue.serverTimestamp(),
-							updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-						},
-						{ merge: true },
-					);
+					const userData: admin.firestore.DocumentData = {
+						uid: p.userId,
+						totalPoints: pts,
+						createdAt: admin.firestore.FieldValue.serverTimestamp(),
+						updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+					};
+					if (typeof after.leagueId === 'string' && after.leagueId.length > 0) {
+						userData.leagueStats = {
+							[after.leagueId]: { points: pts },
+						};
+					}
+					batch.set(userRef, userData, { merge: true });
 				}
 
 				updatedCount++;

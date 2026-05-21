@@ -1,0 +1,5 @@
+# functions/params.yaml
+THESPORTSDB_BASE_URL:
+  type: string
+  default: "https://www.thesportsdb.com/api/v1/json/123"
+  description: "Base URL for TheSportsDB API"

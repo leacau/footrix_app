@@ -1,19 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/trivia_question_model.dart';
 
-final triviaQuestionsProvider = StreamProvider<List<TriviaQuestion>>((ref) {
-  return FirebaseFirestore.instance
-      .collection('trivia_questions')
-      .where('active', isEqualTo: true)
-      .orderBy('createdAt', descending: true)
-      .limit(50)
-      .snapshots()
-      .map(
-        (snap) =>
-            snap.docs.map((d) => TriviaQuestion.fromFirestore(d)).toList(),
-      );
+final triviaQuestionsProvider = FutureProvider<List<TriviaQuestion>>((ref) async {
+  final result = await FirebaseFunctions.instance
+      .httpsCallable('getTriviaQuestions')
+      .call();
+  final data = Map<String, dynamic>.from(result.data as Map);
+  final questions = List<dynamic>.from(data['questions'] as List? ?? []);
+  return questions
+      .map((q) => TriviaQuestion.fromCallable(Map<String, dynamic>.from(q as Map)))
+      .where((q) => q.options.length >= 4)
+      .toList();
 });
 
 final userTriviaHistoryProvider = StreamProvider<List<TriviaAnswer>>((ref) {
@@ -31,68 +31,44 @@ final userTriviaHistoryProvider = StreamProvider<List<TriviaAnswer>>((ref) {
       );
 });
 
+class TriviaSubmitResult {
+  final bool isCorrect;
+  final bool alreadyAnswered;
+  final int pointsEarned;
+  final int correctAnswer;
+  final int streak;
+
+  const TriviaSubmitResult({
+    required this.isCorrect,
+    required this.alreadyAnswered,
+    required this.pointsEarned,
+    required this.correctAnswer,
+    required this.streak,
+  });
+
+  factory TriviaSubmitResult.fromMap(Map<String, dynamic> data) {
+    return TriviaSubmitResult(
+      isCorrect: data['isCorrect'] == true,
+      alreadyAnswered: data['alreadyAnswered'] == true,
+      pointsEarned: data['pointsEarned'] as int? ?? 0,
+      correctAnswer: data['correctAnswer'] as int? ?? 0,
+      streak: data['streak'] as int? ?? 0,
+    );
+  }
+}
+
 final submitTriviaAnswerProvider =
-    FutureProvider.family<void, ({String questionId, int selectedOption})>((
-      ref,
-      params,
-    ) async {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('No autenticado');
-
-      final db = FirebaseFirestore.instance;
-
-      // Obtener la pregunta para validar respuesta
-      final questionDoc = await db
-          .collection('trivia_questions')
-          .doc(params.questionId)
-          .get();
-      if (!questionDoc.exists) throw Exception('Pregunta no encontrada');
-
-      final question = TriviaQuestion.fromFirestore(questionDoc);
-      final isCorrect = params.selectedOption == question.correctAnswer;
-
-      // Obtener racha actual del usuario
-      final userDoc = await db.collection('users').doc(user.uid).get();
-      final userData = userDoc.data() ?? {};
-      final currentStreak = userData['triviaStreak'] as int? ?? 0;
-
-      // Calcular puntos: base + bonus por racha
-      int pointsEarned = isCorrect ? question.points : 0;
-      int newStreak = isCorrect ? currentStreak + 1 : 0;
-
-      // Bonus: +1 punto extra por cada 3 aciertos seguidos
-      if (isCorrect && newStreak > 0 && newStreak % 3 == 0) {
-        pointsEarned += 1;
-      }
-
-      // Actualizar mejor racha si corresponde
-      final bestStreak = userData['triviaBestStreak'] as int? ?? 0;
-      final newBestStreak = newStreak > bestStreak ? newStreak : bestStreak;
-
-      // Guardar respuesta
-      final answerId = '${user.uid}_${params.questionId}';
-      await db
-          .collection('trivia_answers')
-          .doc(answerId)
-          .set(
-            TriviaAnswer(
-              id: answerId,
-              userId: user.uid,
-              questionId: params.questionId,
-              selectedOption: params.selectedOption,
-              isCorrect: isCorrect,
-              pointsEarned: pointsEarned,
-              streakAtAnswer: newStreak,
-              answeredAt: DateTime.now(),
-            ).toFirestore(),
-          );
-
-      // Actualizar stats del usuario
-      await db.collection('users').doc(user.uid).update({
-        'triviaPoints': FieldValue.increment(pointsEarned),
-        'triviaStreak': newStreak,
-        'triviaBestStreak': newBestStreak,
-        'triviaAnswered': FieldValue.increment(1),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+    FutureProvider.family<
+      TriviaSubmitResult,
+      ({String questionId, int selectedOption})
+    >((ref, params) async {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('submitTriviaAnswer')
+          .call({
+            'questionId': params.questionId,
+            'selectedOption': params.selectedOption,
+          });
+      return TriviaSubmitResult.fromMap(
+        Map<String, dynamic>.from(result.data as Map),
+      );
     });

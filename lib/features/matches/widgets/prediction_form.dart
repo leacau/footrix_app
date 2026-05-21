@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../models/match_model.dart';
 
 class PredictionForm extends StatefulWidget {
@@ -20,20 +19,11 @@ class _PredictionFormState extends State<PredictionForm> {
     if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) return;
     setState(() => _loading = true);
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('No logueado');
-
-      await FirebaseFirestore.instance
-          .collection('predictions')
-          .doc('${user.uid}_${widget.match.id}')
-          .set({
-            'userId': user.uid,
-            'matchId': widget.match.id,
-            'homeGuess': int.parse(_homeCtrl.text),
-            'awayGuess': int.parse(_awayCtrl.text),
-            'status': 'pending',
-            'submittedAt': FieldValue.serverTimestamp(),
-          });
+      await FirebaseFunctions.instance.httpsCallable('validatePredictionEdit').call({
+        'matchId': widget.match.id,
+        'homeGuess': int.parse(_homeCtrl.text),
+        'awayGuess': int.parse(_awayCtrl.text),
+      });
 
       // ✅ CORRECCIÓN: bloque if con llaves
       if (mounted) {

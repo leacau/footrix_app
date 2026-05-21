@@ -1,7 +1,7 @@
-// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/match_model.dart';
 import '../models/prediction_model.dart';
 
@@ -36,7 +36,6 @@ class _MatchCardState extends State<MatchCard> {
 
   void _loadPrediction() {
     if (widget.existingPrediction != null) {
-      // ✅ Solo actualizar si los valores son distintos (evita parpadeo)
       if (_homeCtrl.text != widget.existingPrediction!.homeGuess.toString()) {
         _homeCtrl.text = widget.existingPrediction!.homeGuess.toString();
       }
@@ -53,19 +52,22 @@ class _MatchCardState extends State<MatchCard> {
     super.dispose();
   }
 
+  // ✅ CORRECCIÓN: Manejar kickoff nullable
   bool _canEdit() {
     final now = DateTime.now();
+    final kickoff = widget.match.kickoff;
 
-    // ✅ Usar lockHoursBefore del match, con fallback a 12 si no existe
+    // Si no hay fecha de kickoff, permitir edición por defecto
+    if (kickoff == null) return true;
+
     final lockHours = widget.match.lockHoursBefore ?? 12;
-    final lockTime = widget.match.kickoff.subtract(Duration(hours: lockHours));
+    final lockTime = kickoff.subtract(Duration(hours: lockHours));
 
     return now.isBefore(lockTime);
   }
 
-  // ✅ FUNCIÓN AUXILIAR: Muestra SnackBar sin usar context después de await
   void _showMessage(String message, {bool isError = false}) {
-    if (!mounted) return; // Usamos 'mounted' del State, no context
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -78,7 +80,6 @@ class _MatchCardState extends State<MatchCard> {
   Future<void> _savePrediction() async {
     if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) return;
 
-    // Validación cliente-side de 12hs (síncrona, sin async gap)
     if (!_canEdit() && widget.existingPrediction != null) {
       _showMessage('🔒 Cerrado 12hs antes');
       return;
@@ -93,33 +94,6 @@ class _MatchCardState extends State<MatchCard> {
         return;
       }
 
-      // ✅ Usamos predictionId para evitar warning de "unused"
-      // final predictionId = '${user.uid}_${widget.match.id}';
-
-      // =====================================================
-      // OPCIÓN A: Escritura directa a Firestore (Comentada)
-      // =====================================================
-      /*
-      await FirebaseFirestore.instance
-          .collection('predictions')
-          .doc(predictionId)
-          .set({
-            'userId': user.uid,
-            'matchId': widget.match.id,
-            'homeGuess': int.parse(_homeCtrl.text),
-            'awayGuess': int.parse(_awayCtrl.text),
-            'status': 'pending',
-            'submittedAt': FieldValue.serverTimestamp(),
-            'kickoffTime': widget.match.kickoff.millisecondsSinceEpoch,
-          }, SetOptions(merge: true));
-      
-      _showMessage('✅ Guardada');
-      if (mounted) setState(() => _loadPrediction());
-      */
-
-      // =====================================================
-      // OPCIÓN B: Usar Firebase Functions (ACTIVA)
-      // =====================================================
       final result = await FirebaseFunctions.instance
           .httpsCallable('validatePredictionEdit')
           .call({
@@ -128,22 +102,18 @@ class _MatchCardState extends State<MatchCard> {
             'awayGuess': int.parse(_awayCtrl.text),
           });
 
-      // ✅ Llamamos a función auxiliar que verifica 'mounted' internamente
       if (result.data['success'] == true) {
         _showMessage('✅ Guardada');
       } else {
         _showMessage('❌ ${result.data['error']}', isError: true);
       }
 
-      // ✅ Actualizar UI solo si el widget sigue montado
       if (mounted) {
         setState(() => _loadPrediction());
       }
     } catch (e) {
-      // ✅ Manejo de errores con función auxiliar
       _showMessage('❌ $e', isError: true);
     } finally {
-      // ✅ Resetear loading solo si el widget sigue montado
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -167,7 +137,6 @@ class _MatchCardState extends State<MatchCard> {
         padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
-            // Encabezado
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -186,14 +155,13 @@ class _MatchCardState extends State<MatchCard> {
                   ),
                 if (!isFinished && !isLocked)
                   Text(
-                    _timeLeft(widget.match.kickoff),
+                    _timeLeft(), // ✅ Ahora no requiere parámetro
                     style: const TextStyle(fontSize: 10, color: Colors.green),
                   ),
               ],
             ),
             const SizedBox(height: 8),
 
-            // FILA 1: Equipos + Inputs/Resultado
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -229,7 +197,6 @@ class _MatchCardState extends State<MatchCard> {
               ],
             ),
 
-            // FILA 2: Resultado real (solo si finalizó)
             if (isFinished) ...[
               const SizedBox(height: 8),
               Container(
@@ -262,6 +229,14 @@ class _MatchCardState extends State<MatchCard> {
                 ),
               ),
             ],
+            if (widget.match.kickoff != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _kickoffLabel(),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         ),
       ),
@@ -273,12 +248,10 @@ class _MatchCardState extends State<MatchCard> {
     bool isLocked,
     bool hasPrediction,
   ) {
-    // ✅ Siempre mostrar la predicción del usuario (si existe)
     if (hasPrediction) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Fila 1: Predicción del usuario
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -312,7 +285,6 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
-    // Si no hay predicción y terminó: mostrar solo resultado real
     if (isFinished) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -333,7 +305,6 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
-    // Si no hay predicción y no terminó: mostrar inputs o candado
     if (!isLocked) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -357,7 +328,6 @@ class _MatchCardState extends State<MatchCard> {
       );
     }
 
-    // Bloqueado sin predicción
     return const Icon(Icons.lock_outline, color: Colors.red, size: 20);
   }
 
@@ -377,12 +347,27 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  String _timeLeft(DateTime kickoff) {
+  // ✅ CORRECCIÓN: Manejar kickoff nullable + sin parámetro
+  String _timeLeft() {
+    final kickoff = widget.match.kickoff;
+
+    // Si no hay fecha, mostrar mensaje genérico
+    if (kickoff == null) return 'Fecha TBA';
+
     final diff = kickoff.difference(DateTime.now());
     if (diff.inMinutes < 0) return 'En juego';
     if (diff.inHours < 24) {
-      return 'Hoy ${kickoff.hour}:${kickoff.minute.toString().padLeft(2, '0')}';
+      return 'Hoy ${DateFormat('HH:mm').format(kickoff.toLocal())}';
     }
-    return '${kickoff.day}/${kickoff.month}';
+    return DateFormat('d/M HH:mm').format(kickoff.toLocal());
+  }
+
+  String _kickoffLabel() {
+    final kickoff = widget.match.kickoff;
+    if (kickoff == null) return 'Fecha a confirmar';
+    final local = kickoff.toLocal();
+    final zone = DateTime.now().timeZoneName;
+    final formatted = DateFormat('EEE d/M HH:mm').format(local);
+    return '$formatted - hora local del dispositivo ($zone)';
   }
 }

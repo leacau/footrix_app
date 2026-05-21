@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final adminUsersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
@@ -18,40 +19,37 @@ final adminMatchesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 });
 
 class AdminController {
-  final _db = FirebaseFirestore.instance;
+  final _functions = FirebaseFunctions.instance;
 
-  // 1. Crear Partido
   Future<void> createMatch({
     required String homeTeam,
     required String awayTeam,
     required String phase,
     required DateTime kickoff,
-    int lockHoursBefore = 12, // ✅ Nuevo parámetro con default 12
+    int lockHoursBefore = 12,
   }) async {
-    await _db.collection('matches').add({
+    await _functions.httpsCallable('adminCreateMatch').call({
       'homeTeam': homeTeam,
       'awayTeam': awayTeam,
       'phase': phase,
-      'kickoff': Timestamp.fromDate(kickoff),
-      'status': 'scheduled',
-      'homeScore': 0,
-      'awayScore': 0,
-      'lockHoursBefore': lockHoursBefore, // ✅ Guardar configuración
+      'kickoffMillis': kickoff.millisecondsSinceEpoch,
+      'lockHoursBefore': lockHoursBefore,
     });
   }
 
-  // 2. Finalizar Partido (Cargar resultado)
   Future<void> finishMatch(String matchId, int homeScore, int awayScore) async {
-    await _db.collection('matches').doc(matchId).update({
-      'status': 'finished',
+    await _functions.httpsCallable('adminFinishMatch').call({
+      'matchId': matchId,
       'homeScore': homeScore,
       'awayScore': awayScore,
     });
   }
 
-  // 3. Activar/Desactivar Usuario
   Future<void> toggleUserStatus(String userId, bool isActive) async {
-    await _db.collection('users').doc(userId).update({'isActive': isActive});
+    await _functions.httpsCallable('adminToggleUserStatus').call({
+      'userId': userId,
+      'isActive': isActive,
+    });
   }
 }
 

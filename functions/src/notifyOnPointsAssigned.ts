@@ -53,13 +53,13 @@ export const notifyOnPointsAssigned = functions.firestore
 			);
 
 			// Obtener token del usuario
-			const userDoc = await admin
+			const tokenDoc = await admin
 				.firestore()
-				.collection('users')
+				.collection('user_tokens')
 				.doc(userId)
 				.get();
 
-			const fcmToken = userDoc.data()?.fcmToken as string | undefined;
+			const fcmToken = tokenDoc.data()?.token as string | undefined;
 
 			const payload = {
 				notification: { title, body },

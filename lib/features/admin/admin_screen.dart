@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'admin_provider.dart';
+import '../auth/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
@@ -29,11 +30,28 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _homeCtrl.dispose();
+    _awayCtrl.dispose();
+    _phaseCtrl.dispose();
+    _dateCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isAdminAsync = ref.watch(isAdminProvider);
+
+    if (isAdminAsync.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (isAdminAsync.valueOrNull != true) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Panel Admin')),
+        body: const Center(child: Text('No tenes permisos de administrador')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('🛠️ Panel Admin'),

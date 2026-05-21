@@ -10,12 +10,34 @@ export const validatePredictionEdit = functions.https.onCall(
 		const { matchId, homeGuess, awayGuess } = data;
 		const uid = context.auth.uid;
 
-		// Obtener partido para validar 12hs
+		if (typeof matchId !== 'string' || matchId.trim().length === 0) {
+			throw new functions.https.HttpsError(
+				'invalid-argument',
+				'Partido invalido',
+			);
+		}
+
+		if (!Number.isInteger(homeGuess) || !Number.isInteger(awayGuess)) {
+			throw new functions.https.HttpsError(
+				'invalid-argument',
+				'Los goles deben ser numeros enteros',
+			);
+		}
+
+		if (homeGuess < 0 || awayGuess < 0 || homeGuess > 30 || awayGuess > 30) {
+			throw new functions.https.HttpsError(
+				'invalid-argument',
+				'Resultado fuera de rango',
+			);
+		}
+
+		const cleanMatchId = matchId.trim();
 		const matchDoc = await admin
 			.firestore()
 			.collection('matches')
-			.doc(matchId)
+			.doc(cleanMatchId)
 			.get();
+
 		if (!matchDoc.exists) {
 			throw new functions.https.HttpsError(
 				'not-found',
@@ -24,28 +46,44 @@ export const validatePredictionEdit = functions.https.onCall(
 		}
 
 		const match = matchDoc.data()!;
-		const kickoffTime = (match.kickoff as admin.firestore.Timestamp).toMillis();
-		const now = Date.now();
-
-		// Validar 12hs antes (server time)
-		if (now > kickoffTime - 12 * 60 * 60 * 1000) {
+		if (match.status !== 'scheduled') {
 			throw new functions.https.HttpsError(
 				'failed-precondition',
-				'Cerrado 12hs antes',
+				'El partido ya no acepta predicciones',
 			);
 		}
 
-		// Guardar predicción
-		const predictionId = `${uid}_${matchId}`;
+		const kickoff = match.kickoff as admin.firestore.Timestamp | undefined;
+		if (!kickoff) {
+			throw new functions.https.HttpsError(
+				'failed-precondition',
+				'El partido todavia no tiene fecha confirmada',
+			);
+		}
+
+		const kickoffTime = kickoff.toMillis();
+		const lockHours =
+			typeof match.lockHoursBefore === 'number' ? match.lockHoursBefore : 12;
+		const lockTime = kickoffTime - lockHours * 60 * 60 * 1000;
+
+		if (Date.now() >= lockTime) {
+			throw new functions.https.HttpsError(
+				'failed-precondition',
+				`Cerrado ${lockHours}hs antes`,
+			);
+		}
+
+		const predictionId = `${uid}_${cleanMatchId}`;
 		await admin.firestore().collection('predictions').doc(predictionId).set(
 			{
 				userId: uid,
-				matchId,
+				matchId: cleanMatchId,
 				homeGuess,
 				awayGuess,
 				status: 'pending',
 				submittedAt: admin.firestore.FieldValue.serverTimestamp(),
 				kickoffTime,
+				lockHoursBefore: lockHours,
 			},
 			{ merge: true },
 		);
