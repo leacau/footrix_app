@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import '../../../l10n/app_localizations.dart';
 import '../models/match_model.dart';
 
 class PredictionForm extends StatefulWidget {
@@ -19,11 +20,13 @@ class _PredictionFormState extends State<PredictionForm> {
     if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) return;
     setState(() => _loading = true);
     try {
-      await FirebaseFunctions.instance.httpsCallable('validatePredictionEdit').call({
-        'matchId': widget.match.id,
-        'homeGuess': int.parse(_homeCtrl.text),
-        'awayGuess': int.parse(_awayCtrl.text),
-      });
+      await FirebaseFunctions.instance
+          .httpsCallable('validatePredictionEdit')
+          .call({
+            'matchId': widget.match.id,
+            'homeGuess': int.parse(_homeCtrl.text),
+            'awayGuess': int.parse(_awayCtrl.text),
+          });
 
       // ✅ CORRECCIÓN: bloque if con llaves
       if (mounted) {
@@ -32,9 +35,9 @@ class _PredictionFormState extends State<PredictionForm> {
     } catch (e) {
       // ✅ CORRECCIÓN: bloque if con llaves
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.error}: $e')),
+        );
       }
     } finally {
       // ✅ CORRECCIÓN: bloque if con llaves
@@ -46,8 +49,9 @@ class _PredictionFormState extends State<PredictionForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     if (widget.match.isLocked) {
-      return const Text('🔒 Partido bloqueado');
+      return Text(l10n.matchLocked);
     }
     return Column(
       children: [
@@ -58,7 +62,7 @@ class _PredictionFormState extends State<PredictionForm> {
                 controller: _homeCtrl,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(labelText: 'Local'),
+                decoration: InputDecoration(labelText: l10n.homeShort),
               ),
             ),
             const SizedBox(width: 16),
@@ -67,7 +71,7 @@ class _PredictionFormState extends State<PredictionForm> {
                 controller: _awayCtrl,
                 keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
-                decoration: const InputDecoration(labelText: 'Visita'),
+                decoration: InputDecoration(labelText: l10n.awayShort),
               ),
             ),
           ],
@@ -77,7 +81,7 @@ class _PredictionFormState extends State<PredictionForm> {
           onPressed: _loading ? null : _submit,
           child: _loading
               ? const CircularProgressIndicator()
-              : const Text('Enviar Predicción'),
+              : Text(l10n.sendPrediction),
         ),
       ],
     );

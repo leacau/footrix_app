@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/l10n/locale_provider.dart';
 import 'features/notifications/notification_service.dart';
 import 'l10n/app_localizations.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -103,11 +104,13 @@ class FootrixApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
       routerConfig: router,
       title: 'Footrix',
       theme: AppTheme.light,
+      locale: locale,
 
       // 🔥 Localización ES/EN
       localizationsDelegates: const [

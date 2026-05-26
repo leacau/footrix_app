@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../leagues/leagues_provider.dart';
 import '../leagues/widgets/league_selector.dart';
 import 'models/match_model.dart';
@@ -23,13 +24,14 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fixture'),
+        title: Text(l10n.fixture),
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            tooltip: 'Mas opciones',
+            tooltip: l10n.moreOptions,
             onSelected: (value) {
               switch (value) {
                 case 'home':
@@ -46,22 +48,25 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
                   break;
               }
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'home',
-                child: _MenuItem(icon: Icons.home, label: 'Inicio'),
+                child: _MenuItem(icon: Icons.home, label: l10n.home),
               ),
               PopupMenuItem(
                 value: 'groups',
-                child: _MenuItem(icon: Icons.group, label: 'Grupos'),
+                child: _MenuItem(icon: Icons.group, label: l10n.groups),
               ),
               PopupMenuItem(
                 value: 'profile',
-                child: _MenuItem(icon: Icons.person, label: 'Perfil'),
+                child: _MenuItem(icon: Icons.person, label: l10n.profile),
               ),
               PopupMenuItem(
                 value: 'rankings',
-                child: _MenuItem(icon: Icons.emoji_events, label: 'Rankings'),
+                child: _MenuItem(
+                  icon: Icons.emoji_events,
+                  label: l10n.rankings,
+                ),
               ),
             ],
           ),
@@ -88,8 +93,9 @@ class _FixtureBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = _buildTabs();
-    final todayIndex = tabs.indexWhere((tab) => tab.label == 'Hoy');
+    final l10n = AppLocalizations.of(context)!;
+    final tabs = _buildTabs(l10n);
+    final todayIndex = tabs.indexWhere((tab) => tab.label == l10n.today);
 
     return DefaultTabController(
       key: ValueKey(selectedLeagueId ?? 'user-leagues'),
@@ -127,27 +133,27 @@ class _FixtureBody extends StatelessWidget {
     );
   }
 
-  List<_FixtureTabData> _buildTabs() {
+  List<_FixtureTabData> _buildTabs(AppLocalizations l10n) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final tabs = <_FixtureTabData>[
       _FixtureTabData(
-        label: 'Pasados',
+        label: l10n.past,
         start: today.subtract(const Duration(days: 30)),
         end: today,
-        emptyLabel: 'No hay partidos pasados para tus ligas.',
+        emptyLabel: l10n.noPastMatches,
       ),
       _FixtureTabData(
-        label: 'Hoy',
+        label: l10n.today,
         start: today,
         end: today.add(const Duration(days: 1)),
-        emptyLabel: 'No hay partidos para hoy.',
+        emptyLabel: l10n.noMatchesToday,
       ),
       _FixtureTabData(
-        label: 'Mañana',
+        label: l10n.tomorrow,
         start: today.add(const Duration(days: 1)),
         end: today.add(const Duration(days: 2)),
-        emptyLabel: 'No hay partidos para mañana.',
+        emptyLabel: l10n.noMatchesTomorrow,
       ),
     ];
 
@@ -158,17 +164,17 @@ class _FixtureBody extends StatelessWidget {
           label: DateFormat('EEE d/M').format(day),
           start: day,
           end: day.add(const Duration(days: 1)),
-          emptyLabel: 'No hay partidos para esta fecha.',
+          emptyLabel: l10n.noMatchesDate,
         ),
       );
     }
 
     tabs.add(
       _FixtureTabData(
-        label: 'Más',
+        label: l10n.more,
         start: today.add(const Duration(days: 8)),
         end: today.add(const Duration(days: 91)),
-        emptyLabel: 'No hay más partidos cargados.',
+        emptyLabel: l10n.noMoreMatches,
       ),
     );
 
@@ -184,6 +190,7 @@ class _FixtureTabView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final matchesAsync = ref.watch(
       fixtureMatchesProvider(
         FixtureMatchesQuery(
@@ -208,7 +215,7 @@ class _FixtureTabView extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'No se pudo cargar el fixture.\n$error',
+              '${l10n.unableLoadFixture}\n$error',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.red),
             ),
@@ -283,7 +290,7 @@ class _FixtureMatchList extends StatelessWidget {
   Map<String, List<FootballMatch>> _groupByLeague(List<FootballMatch> matches) {
     final groups = <String, List<FootballMatch>>{};
     for (final match in matches) {
-      final key = match.competitionName ?? match.leagueId ?? 'Otros torneos';
+      final key = match.competitionName ?? match.leagueId ?? '';
       groups.putIfAbsent(key, () => []).add(match);
     }
 
@@ -298,6 +305,7 @@ class _LiveHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       child: Row(
@@ -305,7 +313,7 @@ class _LiveHeader extends StatelessWidget {
           Icon(Icons.circle, size: 10, color: Colors.red.shade600),
           const SizedBox(width: 8),
           Text(
-            'En vivo',
+            l10n.live,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               color: Colors.red.shade700,
               fontWeight: FontWeight.w800,
@@ -351,7 +359,12 @@ class _LeagueHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = match.competitionName ?? match.leagueId ?? 'Otros torneos';
+    final l10n = AppLocalizations.of(context)!;
+    final name =
+        match.competitionName ??
+        (match.leagueId?.isNotEmpty == true
+            ? match.leagueId!
+            : l10n.otherTournaments);
     final emblem = match.competitionEmblem;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),

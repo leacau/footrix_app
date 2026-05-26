@@ -67,9 +67,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       errorMsg = l10n.errorEmail;
     } else if (errorMsg.contains('wrong-password') ||
         errorMsg.contains('user-not-found')) {
-      errorMsg = 'Correo o contraseña incorrectos';
+      errorMsg = l10n.incorrectCredentials;
     } else if (errorMsg.contains('email-already-in-use')) {
-      errorMsg = 'Este correo ya está registrado';
+      errorMsg = l10n.emailAlreadyInUse;
     } else if (errorMsg.contains('weak-password')) {
       errorMsg = l10n.errorPassword;
     }
@@ -131,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextFormField(
                       controller: _nameCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Nombre',
+                        labelText: l10n.name,
                         prefixIcon: const Icon(Icons.person_outline),
                       ),
                       validator: (value) {
@@ -205,7 +205,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     },
                     child: Text(
                       _isSignUp
-                          ? '¿Ya tienes cuenta? Iniciar sesión'
+                          ? l10n.alreadyHaveAccount
                           : '${l10n.noAccount} ${l10n.signUp.toLowerCase()}',
                     ),
                   ),

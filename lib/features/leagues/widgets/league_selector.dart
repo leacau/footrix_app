@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../leagues_provider.dart';
 
 class LeagueSelector extends ConsumerWidget {
@@ -17,23 +18,24 @@ class LeagueSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final leaguesAsync = ref.watch(leaguesProvider);
 
     return leaguesAsync.when(
       data: (leagues) {
         return DropdownButton<String>(
-          hint: const Text('Todas las ligas'),
+          hint: Text(l10n.allLeagues),
           value: selectedLeagueId,
           isExpanded: true,
           items: [
             if (showAllOption)
-              const DropdownMenuItem(value: null, child: Text('Todas')),
+              DropdownMenuItem(value: null, child: Text(l10n.all)),
             ...leagues.map((league) {
               final id = league['id'] as String;
               final shortName =
                   league['shortName'] as String? ??
                   league['name'] as String? ??
-                  'Sin nombre';
+                  l10n.unnamed;
               final country = league['country'] as String? ?? '';
               final logo = league['logo'] as String?;
 
@@ -88,8 +90,10 @@ class LeagueSelector extends ConsumerWidget {
         height: 40,
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
-      error: (error, _) =>
-          Text('Error: $error', style: const TextStyle(color: Colors.red)),
+      error: (error, _) => Text(
+        '${l10n.error}: $error',
+        style: const TextStyle(color: Colors.red),
+      ),
     );
   }
 }

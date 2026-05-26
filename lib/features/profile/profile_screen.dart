@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../leagues/leagues_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -35,6 +36,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _countryCtrl.dispose();
+    _provinceCtrl.dispose();
+    _cityCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadData() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
@@ -62,6 +71,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context)!;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -72,26 +82,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'city': _cityCtrl.text.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      // ✅ CORRECCIÓN: usar 'mounted' (del State) para setState
-      if (mounted) {
-        setState(() => _editing = false);
-      }
+      if (mounted) setState(() => _editing = false);
     } catch (e) {
-      // ✅ CORRECCIÓN: usar 'context.mounted' para UI con context
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
       }
     } finally {
-      // ✅ CORRECCIÓN: usar 'mounted' (del State) para setState
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _saveLeaguePreferences() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _savingLeagues = true);
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -102,37 +106,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Ligas guardadas')));
+        ).showSnackBar(SnackBar(content: Text(l10n.leaguesSaved)));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() => _savingLeagues = false);
-      }
+      if (mounted) setState(() => _savingLeagues = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi Perfil'),
+        title: Text(l10n.myProfile),
         actions: [
           if (!_editing)
             IconButton(
               icon: const Icon(Icons.edit),
-              // ✅ CORRECCIÓN: esto es síncrono, no necesita mounted
               onPressed: () {
-                if (mounted) {
-                  setState(() => _editing = true);
-                }
+                if (mounted) setState(() => _editing = true);
               },
             ),
         ],
@@ -166,7 +166,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        user?.displayName ?? 'Usuario',
+                        user?.displayName ?? l10n.user,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text(
@@ -180,7 +180,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              _leaguePreferencesCard(),
+              _leaguePreferencesCard(l10n),
               const SizedBox(height: 16),
               Card(
                 child: Padding(
@@ -188,16 +188,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '⚽ Predicciones',
-                        style: TextStyle(
+                      Text(
+                        l10n.predictions,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 12),
                       _statRow(
-                        'Puntos totales',
+                        l10n.totalPoints,
                         '$_totalPoints',
                         Icons.emoji_events,
                       ),
@@ -215,38 +215,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '🎮 Trivia',
-                            style: TextStyle(
+                          Text(
+                            l10n.trivia,
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
                           TextButton(
-                            // ✅ CORRECCIÓN: Navigator usa context → context.mounted
                             onPressed: () {
-                              if (context.mounted) {
-                                context.push('/trivia');
-                              }
+                              if (context.mounted) context.push('/trivia');
                             },
-                            child: const Text('Jugar'),
+                            child: Text(l10n.play),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _statRow('Puntos trivia', '$_triviaPoints', Icons.star),
+                      _statRow(l10n.triviaPoints, '$_triviaPoints', Icons.star),
                       _statRow(
-                        'Racha actual',
-                        '🔥 $_triviaStreak',
+                        l10n.currentStreak,
+                        '$_triviaStreak',
                         Icons.local_fire_department,
                       ),
                       _statRow(
-                        'Mejor racha',
-                        '🏆 $_triviaBestStreak',
+                        l10n.bestStreak,
+                        '$_triviaBestStreak',
                         Icons.emoji_events,
                       ),
                       _statRow(
-                        'Preguntas respondidas',
+                        l10n.answeredQuestions,
                         '$_triviaAnswered',
                         Icons.quiz,
                       ),
@@ -264,9 +261,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '🌍 Ubicación',
-                            style: TextStyle(
+                          Text(
+                            l10n.location,
+                            style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -282,7 +279,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text('Guardar'),
+                                  : Text(l10n.save),
                             ),
                         ],
                       ),
@@ -294,13 +291,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             children: [
                               TextFormField(
                                 controller: _countryCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'País',
-                                  prefixIcon: Icon(Icons.flag),
+                                decoration: InputDecoration(
+                                  labelText: l10n.country,
+                                  prefixIcon: const Icon(Icons.flag),
                                 ),
                                 validator: (v) {
                                   if (v != null && v.trim().isEmpty) {
-                                    return 'Requerido';
+                                    return l10n.errorRequired;
                                   }
                                   return null;
                                 },
@@ -308,26 +305,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               const SizedBox(height: 12),
                               TextFormField(
                                 controller: _provinceCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Provincia/Estado',
-                                  prefixIcon: Icon(Icons.location_city),
+                                decoration: InputDecoration(
+                                  labelText: l10n.provinceState,
+                                  prefixIcon: const Icon(Icons.location_city),
                                 ),
                               ),
                               const SizedBox(height: 12),
                               TextFormField(
                                 controller: _cityCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Ciudad',
-                                  prefixIcon: Icon(Icons.place),
+                                decoration: InputDecoration(
+                                  labelText: l10n.city,
+                                  prefixIcon: const Icon(Icons.place),
                                 ),
                               ),
                             ],
                           ),
                         ),
                       ] else ...[
-                        _infoRow('País', _countryCtrl.text),
-                        _infoRow('Provincia', _provinceCtrl.text),
-                        _infoRow('Ciudad', _cityCtrl.text),
+                        _infoRow(l10n.country, _countryCtrl.text, l10n),
+                        _infoRow(l10n.province, _provinceCtrl.text, l10n),
+                        _infoRow(l10n.city, _cityCtrl.text, l10n),
                       ],
                     ],
                   ),
@@ -340,7 +337,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _leaguePreferencesCard() {
+  Widget _leaguePreferencesCard(AppLocalizations l10n) {
     final leaguesAsync = ref.watch(leaguesProvider);
 
     return Card(
@@ -352,10 +349,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Ligas para jugar',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    l10n.leaguesToPlay,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -366,15 +366,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Guardar'),
+                      : Text(l10n.save),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               _selectedLeagueIds.isEmpty
-                  ? 'Sin selección: se muestran todas las ligas del día.'
-                  : '${_selectedLeagueIds.length} ligas seleccionadas',
+                  ? l10n.noLeagueSelection
+                  : l10n.selectedLeagueCount(_selectedLeagueIds.length),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 8),
@@ -418,7 +418,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Center(child: CircularProgressIndicator()),
               ),
               error: (error, _) => Text(
-                'Error cargando ligas: $error',
+                '${l10n.errorLoadingLeagues}: $error',
                 style: const TextStyle(color: Colors.red),
               ),
             ),
@@ -447,7 +447,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _infoRow(String label, String value) {
+  Widget _infoRow(String label, String value, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -455,7 +455,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
           Text(
-            value.isNotEmpty ? value : 'No especificado',
+            value.isNotEmpty ? value : l10n.unspecified,
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
         ],

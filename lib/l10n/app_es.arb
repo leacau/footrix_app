@@ -8,16 +8,234 @@
   "googleLogin": "Continuar con Google",
   "noAccount": "¿No tienes cuenta?",
   "signUp": "Registrarse",
+  "signOut": "Cerrar sesión",
+  "name": "Nombre",
+  "alreadyHaveAccount": "¿Ya tienes cuenta? Iniciar sesión",
+  "incorrectCredentials": "Correo o contraseña incorrectos",
+  "emailAlreadyInUse": "Este correo ya está registrado",
   "errorRequired": "Este campo es obligatorio",
   "errorEmail": "Ingresa un correo válido",
   "errorPassword": "Mínimo 6 caracteres",
   "errorAuth": "Error: {error}",
   "@errorAuth": {
     "placeholders": {
-      "error": {
-        "type": "String"
-      }
+      "error": { "type": "String" }
     }
   },
-  "signOut": "Cerrar sesión"
+  "error": "Error",
+  "home": "Inicio",
+  "fixture": "Fixture",
+  "trivia": "Trivia",
+  "groups": "Grupos",
+  "rankings": "Rankings",
+  "profile": "Perfil",
+  "admin": "Admin",
+  "settings": "Ajustes",
+  "language": "Idioma",
+  "spanish": "Español",
+  "english": "English",
+  "languageChanged": "Idioma: {language}",
+  "@languageChanged": {
+    "placeholders": {
+      "language": { "type": "String" }
+    }
+  },
+  "notifications": "Notificaciones",
+  "enablePush": "Activar push",
+  "close": "Cerrar",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "create": "Crear",
+  "join": "Unirse",
+  "play": "Jugar",
+  "all": "Todas",
+  "allLeagues": "Todas las ligas",
+  "noName": "Sin nombre",
+  "unnamed": "Sin nombre",
+  "anonymous": "Anónimo",
+  "unspecified": "No especificado",
+  "helloUser": "¡Hola, {name}!",
+  "@helloUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "user": "Usuario",
+  "chooseSection": "Elegí una sección para comenzar:",
+  "fixtureSubtitle": "Predice partidos",
+  "triviaSubtitle": "Preguntas rápidas",
+  "groupsSubtitle": "Competí con amigos",
+  "rankingsSubtitle": "Tabla de posiciones",
+  "profileSubtitle": "Mis datos y stats",
+  "settingsSubtitle": "Idioma, notificaciones",
+  "adminSubtitle": "Gestión",
+  "myProfile": "Mi Perfil",
+  "myStats": "Tus Stats",
+  "points": "Puntos",
+  "streak": "Racha",
+  "leaguesToPlay": "Ligas para jugar",
+  "leaguesSaved": "Ligas guardadas",
+  "noLeagueSelection": "Sin selección: se muestran todas las ligas del día.",
+  "selectedLeagueCount": "{count} ligas seleccionadas",
+  "@selectedLeagueCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "errorLoadingLeagues": "Error cargando ligas",
+  "predictions": "Predicciones",
+  "totalPoints": "Puntos totales",
+  "triviaPoints": "Puntos trivia",
+  "currentStreak": "Racha actual",
+  "bestStreak": "Mejor racha",
+  "answeredQuestions": "Preguntas respondidas",
+  "location": "Ubicación",
+  "country": "País",
+  "provinceState": "Provincia/Estado",
+  "city": "Ciudad",
+  "myGroups": "Mis Grupos",
+  "createGroup": "Crear Grupo",
+  "groupName": "Nombre del Grupo",
+  "groupNameHint": "Ej: Oficina, Familia, Amigos",
+  "leagueCompetition": "Liga/Competencia:",
+  "onlyThisLeague": "Solo esta liga",
+  "leagueExclusiveSubtitle": "El ranking solo contará partidos de la liga seleccionada",
+  "groupCreated": "Grupo creado",
+  "selectLeagueWarning": "Seleccioná una liga para continuar",
+  "joinGroup": "Unirse a Grupo",
+  "sixCharacterCode": "Código de 6 caracteres",
+  "codeExample": "Ej: X7K9P2",
+  "joinedGroup": "Te uniste al grupo",
+  "noGroupsYet": "No perteneces a ningún grupo aún.",
+  "code": "Código",
+  "league": "Liga",
+  "allLeaguesName": "Todas las ligas",
+  "exclusive": "exclusiva",
+  "inviteWhatsapp": "Invitar por WhatsApp",
+  "codeCopied": "Código copiado: {code}",
+  "@codeCopied": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "whatsappInvite": "Te invito a jugar en mi grupo \"{groupName}\" de Footrix.\nCódigo del grupo: {code}\nAbrí Footrix > Grupos > Unirse a grupo y pegá el código.",
+  "@whatsappInvite": {
+    "placeholders": {
+      "groupName": { "type": "String" },
+      "code": { "type": "String" }
+    }
+  },
+  "rankingsTitle": "Rankings",
+  "clearFilters": "Limpiar filtros",
+  "type": "Tipo:",
+  "combined": "Combinado",
+  "worldwide": "Mundial",
+  "province": "Provincia",
+  "filterHint": "Filtrar...",
+  "noDataForLeague": "Sin datos para esta liga",
+  "noUsersForFilter": "Sin usuarios para este filtro",
+  "noLocation": "Sin ubicación",
+  "pointsSuffix": "{points} pts",
+  "@pointsSuffix": {
+    "placeholders": {
+      "points": { "type": "int" }
+    }
+  },
+  "adminPanel": "Panel Admin",
+  "noAdminPermission": "No tenés permisos de administrador",
+  "syncFifa": "Sincronizar FIFA",
+  "users": "Usuarios",
+  "createMatch": "Crear Partido",
+  "finish": "Finalizar",
+  "fifaSynced": "FIFA sincronizado: {matches} partidos, {leagues} ligas",
+  "@fifaSynced": {
+    "placeholders": {
+      "matches": { "type": "int" },
+      "leagues": { "type": "int" }
+    }
+  },
+  "syncFifaError": "Error sincronizando FIFA",
+  "predictionSettings": "Predicciones",
+  "predictionLockLabel": "Cerrar predicciones X horas antes",
+  "predictionLockHelper": "Usa 0 para aceptar hasta la hora de inicio.",
+  "triviaSettings": "Trivia",
+  "triviaDailyLimitLabel": "Preguntas por usuario por día",
+  "saveSettings": "Guardar ajustes",
+  "checkNumericValues": "Revisá los valores numéricos",
+  "settingsSaved": "Ajustes guardados",
+  "homeTeam": "Equipo Local",
+  "awayTeam": "Equipo Visitante",
+  "phaseExample": "Fase (Ej: Grupo A)",
+  "dateTimeFormat": "Fecha y Hora (YYYY-MM-DD HH:MM)",
+  "lockPredictionsBefore": "Bloquear predicciones X horas antes",
+  "hoursBefore": "{hours} horas antes",
+  "@hoursBefore": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "matchCreated": "Partido creado",
+  "dateFormatError": "Error: Formato de fecha incorrecto",
+  "finishMatch": "Finalizar Partido",
+  "homeGoals": "Goles Local",
+  "awayGoals": "Goles Visita",
+  "noPendingMatches": "No hay partidos pendientes",
+  "noSchedule": "Sin horario",
+  "footballTrivia": "Trivia Fútbol",
+  "noQuestionsAvailable": "No hay preguntas disponibles",
+  "secondsLeft": "{seconds} segundos",
+  "@secondsLeft": {
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "timeUp": "Tiempo agotado",
+  "alreadyAnsweredQuestion": "Ya habías respondido esta pregunta",
+  "correctPoints": "Correcto: +{points} pts",
+  "@correctPoints": {
+    "placeholders": {
+      "points": { "type": "int" }
+    }
+  },
+  "incorrect": "Incorrecto",
+  "nextQuestion": "Siguiente pregunta",
+  "moreOptions": "Más opciones",
+  "past": "Pasados",
+  "today": "Hoy",
+  "tomorrow": "Mañana",
+  "more": "Más",
+  "noPastMatches": "No hay partidos pasados para tus ligas.",
+  "noMatchesToday": "No hay partidos para hoy.",
+  "noMatchesTomorrow": "No hay partidos para mañana.",
+  "noMatchesDate": "No hay partidos para esta fecha.",
+  "noMoreMatches": "No hay más partidos cargados.",
+  "unableLoadFixture": "No se pudo cargar el fixture.",
+  "live": "En vivo",
+  "otherTournaments": "Otros torneos",
+  "detail": "Detalle",
+  "matchLocked": "Partido bloqueado",
+  "homeShort": "Local",
+  "awayShort": "Visita",
+  "sendPrediction": "Enviar Predicción",
+  "finished": "FINALIZADO",
+  "yourPrediction": "Tu predicción:",
+  "closedBefore": "Cerrado 12hs antes",
+  "notAuthenticated": "No autenticado",
+  "saved": "Guardada",
+  "dateTba": "Fecha TBA",
+  "inPlay": "En juego",
+  "todayAt": "Hoy {time}",
+  "@todayAt": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "dateToBeConfirmed": "Fecha a confirmar",
+  "localDeviceTime": "{date} - hora local del dispositivo ({zone})",
+  "@localDeviceTime": {
+    "placeholders": {
+      "date": { "type": "String" },
+      "zone": { "type": "String" }
+    }
+  }
 }

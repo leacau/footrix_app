@@ -1,8 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'trivia_provider.dart';
+
+import '../../l10n/app_localizations.dart';
 import 'models/trivia_question_model.dart';
+import 'trivia_provider.dart';
 
 class TriviaScreen extends ConsumerStatefulWidget {
   const TriviaScreen({super.key});
@@ -56,12 +59,13 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
     if (_answered || _submitting) return;
     setState(() {
       _answered = true;
-      _feedback = 'Tiempo agotado';
+      _feedback = AppLocalizations.of(context)!.timeUp;
       _feedbackColor = Colors.orange;
     });
   }
 
   Future<void> _selectOption(int index) async {
+    final l10n = AppLocalizations.of(context)!;
     if (_answered || _submitting || _currentQuestion == null) return;
 
     setState(() {
@@ -84,13 +88,13 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
         _submitting = false;
         _revealedCorrectAnswer = result.correctAnswer;
         if (result.alreadyAnswered) {
-          _feedback = 'Ya habias respondido esta pregunta';
+          _feedback = l10n.alreadyAnsweredQuestion;
           _feedbackColor = Colors.orange;
         } else if (result.isCorrect) {
-          _feedback = 'Correcto: +${result.pointsEarned} pts';
+          _feedback = l10n.correctPoints(result.pointsEarned);
           _feedbackColor = Colors.green;
         } else {
-          _feedback = 'Incorrecto';
+          _feedback = l10n.incorrect;
           _feedbackColor = Colors.red;
         }
       });
@@ -104,7 +108,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
       }
       _startTimer();
     }
@@ -126,14 +130,15 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final questionsAsync = ref.watch(triviaQuestionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Trivia Futbol')),
+      appBar: AppBar(title: Text(l10n.footballTrivia)),
       body: questionsAsync.when(
         data: (questions) {
           if (questions.isEmpty) {
-            return const Center(child: Text('No hay preguntas disponibles'));
+            return Center(child: Text(l10n.noQuestionsAvailable));
           }
 
           _currentQuestion ??=
@@ -161,7 +166,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                       const Icon(Icons.timer, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        '$_timeLeft segundos',
+                        l10n.secondsLeft(_timeLeft),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: _timeLeft <= 3 ? Colors.red : Colors.blue,
@@ -292,7 +297,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
                   ElevatedButton.icon(
                     onPressed: _nextQuestion,
                     icon: const Icon(Icons.arrow_forward),
-                    label: const Text('Siguiente pregunta'),
+                    label: Text(l10n.nextQuestion),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
@@ -305,7 +310,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text('${l10n.error}: $e')),
       ),
     );
   }

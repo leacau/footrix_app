@@ -1,7 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../core/l10n/locale_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../auth/auth_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -9,41 +12,39 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
     final isAdmin = ref.watch(isAdminProvider).valueOrNull == true;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🏠 Footrix'),
+        title: Text(l10n.appTitle),
         actions: [
-          // 🌐 Selector de idioma
           PopupMenuButton<Locale>(
             icon: const Icon(Icons.language),
-            onSelected: (locale) {
-              // Aquí podrías implementar cambio de idioma con Riverpod
-              // Por ahora, solo mostramos un mensaje
+            tooltip: l10n.language,
+            onSelected: (locale) async {
+              await ref.read(localeProvider.notifier).setLocale(locale);
               if (context.mounted) {
+                final label = locale.languageCode == 'es'
+                    ? l10n.spanish
+                    : l10n.english;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Idioma: ${locale.languageCode.toUpperCase()}',
-                    ),
-                  ),
+                  SnackBar(content: Text(l10n.languageChanged(label))),
                 );
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: Locale('es'),
-                child: Text('🇪🇸 Español'),
+              PopupMenuItem(
+                value: const Locale('es'),
+                child: Text(l10n.spanish),
               ),
-              const PopupMenuItem(
-                value: Locale('en'),
-                child: Text('🇬🇧 English'),
+              PopupMenuItem(
+                value: const Locale('en'),
+                child: Text(l10n.english),
               ),
             ],
           ),
-          // 👤 Menú de perfil rápido
           PopupMenuButton<String>(
             icon: const Icon(Icons.person),
             onSelected: (value) {
@@ -54,14 +55,8 @@ class HomeScreen extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Text('👤 Mi Perfil'),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Text('🚪 Cerrar Sesión'),
-              ),
+              PopupMenuItem(value: 'profile', child: Text(l10n.myProfile)),
+              PopupMenuItem(value: 'logout', child: Text(l10n.signOut)),
             ],
           ),
         ],
@@ -71,7 +66,6 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 👋 Welcome header
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -79,12 +73,12 @@ class HomeScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '👋 ¡Hola, ${user?.displayName ?? 'Usuario'}!',
+                      l10n.helloUser(user?.displayName ?? l10n.user),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Elegí una sección para comenzar:',
+                      l10n.chooseSection,
                       style: Theme.of(
                         context,
                       ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
@@ -94,8 +88,6 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-
-            // 🎯 Grid de navegación
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -104,89 +96,76 @@ class HomeScreen extends ConsumerWidget {
               mainAxisSpacing: 12,
               childAspectRatio: 1.2,
               children: [
-                // ⚽ Fixture
                 _NavCard(
                   icon: Icons.sports_soccer,
-                  title: 'Fixture',
-                  subtitle: 'Predice partidos',
+                  title: l10n.fixture,
+                  subtitle: l10n.fixtureSubtitle,
                   color: Colors.blue,
                   onTap: () => context.push('/fixture'),
                 ),
-                // 🎮 Trivia
                 _NavCard(
                   icon: Icons.quiz,
-                  title: 'Trivia',
-                  subtitle: 'Preguntas rápidas',
+                  title: l10n.trivia,
+                  subtitle: l10n.triviaSubtitle,
                   color: Colors.purple,
                   onTap: () => context.push('/trivia'),
                 ),
-                // 👥 Grupos
                 _NavCard(
                   icon: Icons.group,
-                  title: 'Grupos',
-                  subtitle: 'Competí con amigos',
+                  title: l10n.groups,
+                  subtitle: l10n.groupsSubtitle,
                   color: Colors.green,
                   onTap: () => context.push('/groups'),
                 ),
-                // 🏆 Rankings
                 _NavCard(
                   icon: Icons.emoji_events,
-                  title: 'Rankings',
-                  subtitle: 'Tabla de posiciones',
+                  title: l10n.rankings,
+                  subtitle: l10n.rankingsSubtitle,
                   color: Colors.amber,
                   onTap: () => context.push('/rankings'),
                 ),
-                // 👤 Perfil
                 _NavCard(
                   icon: Icons.person,
-                  title: 'Perfil',
-                  subtitle: 'Mis datos y stats',
+                  title: l10n.profile,
+                  subtitle: l10n.profileSubtitle,
                   color: Colors.teal,
                   onTap: () => context.push('/profile'),
                 ),
-                // ⚙️ Configuración
                 _NavCard(
                   icon: Icons.settings,
-                  title: 'Ajustes',
-                  subtitle: 'Idioma, notificaciones',
+                  title: l10n.settings,
+                  subtitle: l10n.settingsSubtitle,
                   color: Colors.grey,
-                  onTap: () => _showSettingsDialog(context),
+                  onTap: () => _showSettingsDialog(context, ref),
                 ),
-                // 🛠️ Panel Admin (solo para usuarios con permisos)
                 if (isAdmin)
                   _NavCard(
                     icon: Icons.admin_panel_settings,
-                    title: 'Admin',
-                    subtitle: 'Gestion',
+                    title: l10n.admin,
+                    subtitle: l10n.adminSubtitle,
                     color: Colors.red,
                     onTap: () => context.push('/admin'),
                   ),
               ],
             ),
-
             const SizedBox(height: 24),
-
-            // 📊 Stats rápidos
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '📊 Tus Stats',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.myStats,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _statChip(
-                          '⚽ Puntos',
-                          user != null ? "Cargando..." : "0",
-                        ),
-                        _statChip('🎮 Trivia', '0'),
-                        _statChip('🔥 Racha', '0'),
+                        _statChip(l10n.points, user != null ? '...' : '0'),
+                        _statChip(l10n.trivia, '0'),
+                        _statChip(l10n.streak, '0'),
                       ],
                     ),
                   ],
@@ -196,7 +175,6 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
       ),
-      // Bottom nav para móvil
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
@@ -211,69 +189,81 @@ class HomeScreen extends ConsumerWidget {
             context.push(routes[index]);
           }
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.sports_soccer),
-            label: 'Fixture',
+            icon: const Icon(Icons.sports_soccer),
+            label: l10n.fixture,
           ),
-          NavigationDestination(icon: Icon(Icons.quiz), label: 'Trivia'),
-          NavigationDestination(icon: Icon(Icons.group), label: 'Grupos'),
           NavigationDestination(
-            icon: Icon(Icons.emoji_events),
-            label: 'Rankings',
+            icon: const Icon(Icons.quiz),
+            label: l10n.trivia,
           ),
-          NavigationDestination(icon: Icon(Icons.person), label: 'Perfil'),
+          NavigationDestination(
+            icon: const Icon(Icons.group),
+            label: l10n.groups,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.emoji_events),
+            label: l10n.rankings,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.person),
+            label: l10n.profile,
+          ),
         ],
       ),
     );
   }
 
-  void _showSettingsDialog(BuildContext context) {
+  void _showSettingsDialog(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('⚙️ Ajustes'),
+        title: Text(l10n.settings),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Idioma:'),
+            Text('${l10n.language}:'),
             const SizedBox(height: 8),
             Row(
               children: [
                 ElevatedButton(
                   onPressed: () {
+                    ref
+                        .read(localeProvider.notifier)
+                        .setLocale(const Locale('es'));
                     Navigator.pop(context);
-                    // Aquí implementarías cambio de idioma real
                   },
-                  child: const Text('🇪🇸 ES'),
+                  child: Text(l10n.spanish),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () {
+                    ref
+                        .read(localeProvider.notifier)
+                        .setLocale(const Locale('en'));
                     Navigator.pop(context);
-                    // Aquí implementarías cambio de idioma real
                   },
-                  child: const Text('🇬🇧 EN'),
+                  child: Text(l10n.english),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Notificaciones:'),
+            Text('${l10n.notifications}:'),
             const SizedBox(height: 8),
             SwitchListTile(
-              title: const Text('Activar push'),
+              title: Text(l10n.enablePush),
               value: true,
-              onChanged: (value) {
-                // Aquí implementarías toggle de notificaciones
-              },
+              onChanged: (_) {},
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+            child: Text(l10n.close),
           ),
         ],
       ),
@@ -281,7 +271,6 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// Widget auxiliar para las tarjetas de navegación
 class _NavCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -316,6 +305,7 @@ class _NavCard extends StatelessWidget {
               Text(
                 subtitle,
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../l10n/app_localizations.dart';
 import 'matches_provider.dart';
 import 'widgets/prediction_form.dart';
 
@@ -9,10 +10,11 @@ class MatchDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final matchAsync = ref.watch(matchesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle')),
+      appBar: AppBar(title: Text(l10n.detail)),
       body: matchAsync.when(
         // ✅ CORRECCIÓN: parámetro nombrado 'data:'
         data: (matches) {
@@ -33,7 +35,7 @@ class MatchDetailScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Error: $error')),
+        error: (error, _) => Center(child: Text('${l10n.error}: $error')),
       ),
     );
   }

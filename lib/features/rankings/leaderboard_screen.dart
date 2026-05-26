@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../l10n/app_localizations.dart';
 import '../leagues/widgets/league_selector.dart';
 import 'ranking_provider.dart';
 
@@ -14,33 +16,36 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   RankingScope _scope = RankingScope.global;
   RankingType _type = RankingType.predictions;
   final _filterCtrl = TextEditingController();
-
-  // ✅ Nuevos estados para filtros por liga y grupo
   String? _selectedLeagueId;
   String? _selectedGroupId;
 
   @override
+  void dispose() {
+    _filterCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // ✅ CORRECCIÓN: Pasar los 5 parámetros requeridos por rankingProvider
+    final l10n = AppLocalizations.of(context)!;
     final rankingAsync = ref.watch(
       rankingProvider((
         scope: _scope,
         filter: _filterCtrl.text.isEmpty ? null : _filterCtrl.text,
         type: _type,
-        leagueId: _selectedLeagueId, // ✅ Nuevo parámetro
-        groupId: _selectedGroupId, // ✅ Nuevo parámetro
+        leagueId: _selectedLeagueId,
+        groupId: _selectedGroupId,
       )),
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🏆 Rankings'),
+        title: Text(l10n.rankingsTitle),
         actions: [
-          // ✅ Botón para resetear filtros
           if (_selectedLeagueId != null || _selectedGroupId != null)
             IconButton(
               icon: const Icon(Icons.clear_all),
-              tooltip: 'Limpiar filtros',
+              tooltip: l10n.clearFilters,
               onPressed: () {
                 if (context.mounted) {
                   setState(() {
@@ -58,12 +63,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                // Filtro por Tipo de Ranking
                 Row(
                   children: [
-                    const Text(
-                      'Tipo:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
+                    Text(
+                      l10n.type,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -72,10 +76,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         isExpanded: true,
                         items: RankingType.values.map((t) {
                           final label = t == RankingType.predictions
-                              ? 'Predicciones'
+                              ? l10n.predictions
                               : t == RankingType.trivia
-                              ? 'Trivia'
-                              : 'Combinado';
+                              ? l10n.trivia
+                              : l10n.combined;
                           return DropdownMenuItem(value: t, child: Text(label));
                         }).toList(),
                         onChanged: (value) {
@@ -88,13 +92,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-
-                // Filtro por Liga
                 Row(
                   children: [
-                    const Text(
-                      'Liga:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
+                    Text(
+                      '${l10n.league}:',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -104,8 +106,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                           if (context.mounted) {
                             setState(() {
                               _selectedLeagueId = leagueId;
-                              _selectedGroupId =
-                                  null; // Resetear grupo al cambiar liga
+                              _selectedGroupId = null;
                             });
                           }
                         },
@@ -115,13 +116,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-
-                // Filtro por Ubicación
                 Row(
                   children: [
-                    const Text(
-                      'Ubicación:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
+                    Text(
+                      '${l10n.location}:',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -130,12 +129,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         isExpanded: true,
                         items: RankingScope.values.map((s) {
                           final label = s == RankingScope.global
-                              ? 'Mundial'
+                              ? l10n.worldwide
                               : s == RankingScope.country
-                              ? 'País'
+                              ? l10n.country
                               : s == RankingScope.province
-                              ? 'Provincia'
-                              : 'Ciudad';
+                              ? l10n.province
+                              : l10n.city;
                           return DropdownMenuItem(value: s, child: Text(label));
                         }).toList(),
                         onChanged: (value) {
@@ -151,17 +150,15 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         flex: 2,
                         child: TextField(
                           controller: _filterCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Filtrar...',
+                          decoration: InputDecoration(
+                            hintText: l10n.filterHint,
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,
                             ),
                           ),
                           onSubmitted: (_) {
-                            if (context.mounted) {
-                              setState(() {});
-                            }
+                            if (context.mounted) setState(() {});
                           },
                         ),
                       ),
@@ -171,11 +168,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               ],
             ),
           ),
-
-          // Lista de usuarios
           Expanded(
             child: rankingAsync.when(
-              // ✅ CORRECCIÓN: 'data:' explícito
               data: (List<Map<String, dynamic>> users) {
                 if (users.isEmpty) {
                   return Center(
@@ -190,8 +184,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _selectedLeagueId != null
-                              ? '📭 Sin datos para esta liga'
-                              : '📭 Sin usuarios para este filtro',
+                              ? l10n.noDataForLeague
+                              : l10n.noUsersForFilter,
                           style: const TextStyle(fontSize: 16),
                         ),
                         if (_selectedLeagueId != null ||
@@ -205,7 +199,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                                 });
                               }
                             },
-                            child: const Text('Limpiar filtros'),
+                            child: Text(l10n.clearFilters),
                           ),
                       ],
                     ),
@@ -227,16 +221,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
                         backgroundColor: i < 3 ? Colors.amber : null,
                         child: Text('${i + 1}'),
                       ),
-                      title: Text(user['displayName'] ?? 'Anónimo'),
-                      subtitle: Text(
-                        '${user['city'] ?? ''}, ${user['country'] ?? ''}'
-                                .trim()
-                                .isEmpty
-                            ? 'Sin ubicación'
-                            : '${user['city'] ?? ''}, ${user['country'] ?? ''}',
-                      ),
+                      title: Text(user['displayName'] ?? l10n.anonymous),
+                      subtitle: Text(_locationLabel(user, l10n)),
                       trailing: Text(
-                        '$points pts',
+                        l10n.pointsSuffix(points),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0052CC),
@@ -248,7 +236,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (Object e, StackTrace _) =>
-                  Center(child: Text('Error: $e')),
+                  Center(child: Text('${l10n.error}: $e')),
             ),
           ),
         ],
@@ -256,13 +244,18 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     );
   }
 
-  /// ✅ Helper: Obtener puntos según tipo y liga
-  String _getPointsDisplay(
+  String _locationLabel(Map<String, dynamic> user, AppLocalizations l10n) {
+    final city = user['city'] as String? ?? '';
+    final country = user['country'] as String? ?? '';
+    final label = '$city, $country'.trim();
+    return label == ',' || label.isEmpty ? l10n.noLocation : label;
+  }
+
+  int _getPointsDisplay(
     Map<String, dynamic> user,
     RankingType type,
     String? leagueId,
   ) {
-    // Si hay leagueId, usar stats específicos de esa liga
     if (leagueId != null) {
       final leagueStats = user['leagueStats'] as Map<String, dynamic>?;
       final leagueData = leagueStats?[leagueId];
@@ -270,29 +263,27 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       if (leagueData != null) {
         switch (type) {
           case RankingType.predictions:
-            return '${leagueData['points'] as int? ?? 0}';
+            return leagueData['points'] as int? ?? 0;
           case RankingType.trivia:
-            return '${leagueData['triviaPoints'] as int? ?? 0}';
+            return leagueData['triviaPoints'] as int? ?? 0;
           case RankingType.combined:
             final pred = leagueData['points'] as int? ?? 0;
             final trivia = leagueData['triviaPoints'] as int? ?? 0;
-            return '${pred + trivia}';
+            return pred + trivia;
         }
       }
-      // Si no tiene stats en esta liga, retornar 0
-      return '0';
+      return 0;
     }
 
-    // Fallback a lógica global (sin filtro de liga)
     switch (type) {
       case RankingType.predictions:
-        return '${user['totalPoints'] as int? ?? 0}';
+        return user['totalPoints'] as int? ?? 0;
       case RankingType.trivia:
-        return '${user['triviaPoints'] as int? ?? 0}';
+        return user['triviaPoints'] as int? ?? 0;
       case RankingType.combined:
         final pred = user['totalPoints'] as int? ?? 0;
         final trivia = user['triviaPoints'] as int? ?? 0;
-        return '${pred + trivia}';
+        return pred + trivia;
     }
   }
 }

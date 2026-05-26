@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../../l10n/app_localizations.dart';
 import '../leagues/widgets/league_selector.dart';
 import 'groups_provider.dart';
 
@@ -28,38 +30,37 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final groupsAsync = ref.watch(userGroupsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis Grupos')),
+      appBar: AppBar(title: Text(l10n.myGroups)),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // === CREAR GRUPO ===
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Crear Grupo',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.createGroup,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre del Grupo',
-                        hintText: 'Ej: Oficina, Familia, Amigos',
+                      decoration: InputDecoration(
+                        labelText: l10n.groupName,
+                        hintText: l10n.groupNameHint,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // ✅ Selector de liga (obligatorio)
-                    const Text(
-                      'Liga/Competencia:',
-                      style: TextStyle(fontWeight: FontWeight.w500),
+                    Text(
+                      l10n.leagueCompetition,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 4),
                     LeagueSelector(
@@ -72,13 +73,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                       showAllOption: false,
                     ),
                     const SizedBox(height: 8),
-                    // ✅ Switch para exclusivo de liga
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Solo esta liga'),
-                      subtitle: const Text(
-                        'El ranking solo contará partidos de la liga seleccionada',
-                      ),
+                      title: Text(l10n.onlyThisLeague),
+                      subtitle: Text(l10n.leagueExclusiveSubtitle),
                       value: _isLeagueExclusive,
                       onChanged: (val) {
                         if (context.mounted) {
@@ -107,9 +105,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('✅ Grupo creado'),
-                                    ),
+                                    SnackBar(content: Text(l10n.groupCreated)),
                                   );
                                   _shareInvite(
                                     code: code,
@@ -119,13 +115,13 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('❌ $e')),
+                                    SnackBar(
+                                      content: Text('${l10n.error}: $e'),
+                                    ),
                                   );
                                 }
                               } finally {
-                                if (mounted) {
-                                  setState(() => _creating = false);
-                                }
+                                if (mounted) setState(() => _creating = false);
                               }
                             },
                       child: _creating
@@ -134,13 +130,13 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Crear'),
+                          : Text(l10n.create),
                     ),
                     if (_selectedLeagueForGroup == null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          '⚠️ Seleccioná una liga para continuar',
+                          l10n.selectLeagueWarning,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.orange[700],
@@ -152,24 +148,22 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // === UNIRSE A GRUPO ===
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Unirse a Grupo',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.joinGroup,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _codeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Código de 6 caracteres',
-                        hintText: 'Ej: X7K9P2',
+                      decoration: InputDecoration(
+                        labelText: l10n.sixCharacterCode,
+                        hintText: l10n.codeExample,
                       ),
                       textCapitalization: TextCapitalization.characters,
                       inputFormatters: [LengthLimitingTextInputFormatter(6)],
@@ -191,42 +185,38 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('✅ Te uniste al grupo'),
-                                    ),
+                                    SnackBar(content: Text(l10n.joinedGroup)),
                                   );
                                 }
                               } catch (e) {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('❌ $e')),
+                                    SnackBar(
+                                      content: Text('${l10n.error}: $e'),
+                                    ),
                                   );
                                 }
                               }
                             }
                           : null,
-                      child: const Text('Unirse'),
+                      child: Text(l10n.join),
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-
-            // === LISTA DE GRUPOS ===
             Expanded(
               child: groupsAsync.when(
                 data: (groups) {
                   if (groups.isEmpty) {
-                    return const Center(
-                      child: Text('📭 No perteneces a ningún grupo aún.'),
-                    );
+                    return Center(child: Text(l10n.noGroupsYet));
                   }
                   return ListView.builder(
                     itemCount: groups.length,
                     itemBuilder: (_, i) {
                       final g = groups[i];
-                      final leagueName = g['leagueName'] ?? 'Todas las ligas';
+                      final leagueName = g['leagueName'] ?? l10n.allLeaguesName;
                       final isExclusive = g['isLeagueExclusive'] ?? false;
 
                       return ListTile(
@@ -234,9 +224,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Código: ${g['code']}'),
+                            Text('${l10n.code}: ${g['code']}'),
                             Text(
-                              'Liga: $leagueName${isExclusive ? ' (exclusiva)' : ''}',
+                              '${l10n.league}: $leagueName${isExclusive ? ' (${l10n.exclusive})' : ''}',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey[600],
@@ -247,26 +237,24 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('${(g['members'] as List).length} 👥'),
+                            Text('${(g['members'] as List).length}'),
                             IconButton(
-                              tooltip: 'Invitar por WhatsApp',
+                              tooltip: l10n.inviteWhatsapp,
                               icon: const Icon(Icons.ios_share),
                               onPressed: () => _shareInvite(
                                 code: g['code'] as String? ?? g['id'] as String,
-                                groupName: g['name'] as String? ?? 'mi grupo',
+                                groupName:
+                                    g['name'] as String? ?? l10n.myGroups,
                               ),
                             ),
                           ],
                         ),
-                        onTap: () {
-                          // Aquí podrías navegar a un detalle del grupo
-                        },
                       );
                     },
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                error: (e, _) => Center(child: Text('${l10n.error}: $e')),
               ),
             ),
           ],
@@ -279,19 +267,16 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     required String code,
     required String groupName,
   }) async {
+    final l10n = AppLocalizations.of(context)!;
     if (code.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: code));
-    final message = Uri.encodeComponent(
-      'Te invito a jugar en mi grupo "$groupName" de Footrix.\n'
-      'Código del grupo: $code\n'
-      'Abrí Footrix > Grupos > Unirse a grupo y pegá el código.',
-    );
+    final message = Uri.encodeComponent(l10n.whatsappInvite(groupName, code));
     final uri = Uri.parse('https://wa.me/?text=$message');
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Código copiado: $code')));
+      ).showSnackBar(SnackBar(content: Text(l10n.codeCopied(code))));
     }
   }
 }

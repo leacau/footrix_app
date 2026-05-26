@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'admin_provider.dart';
-import '../auth/auth_provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+
+import '../../l10n/app_localizations.dart';
+import '../auth/auth_provider.dart';
+import 'admin_provider.dart';
 
 class AdminScreen extends ConsumerStatefulWidget {
   const AdminScreen({super.key});
@@ -45,6 +47,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isAdminAsync = ref.watch(isAdminProvider);
 
     if (isAdminAsync.isLoading) {
@@ -53,17 +56,17 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
 
     if (isAdminAsync.valueOrNull != true) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Panel Admin')),
-        body: const Center(child: Text('No tenes permisos de administrador')),
+        appBar: AppBar(title: Text(l10n.adminPanel)),
+        body: Center(child: Text(l10n.noAdminPermission)),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🛠️ Panel Admin'),
+        title: Text(l10n.adminPanel),
         actions: [
           IconButton(
-            tooltip: 'Sincronizar FIFA',
+            tooltip: l10n.syncFifa,
             icon: _syncingFifa
                 ? const SizedBox(
                     width: 20,
@@ -76,11 +79,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Usuarios'),
-            Tab(text: 'Crear Partido'),
-            Tab(text: 'Finalizar'),
-            Tab(text: 'Ajustes'),
+          tabs: [
+            Tab(text: l10n.users),
+            Tab(text: l10n.createMatch),
+            Tab(text: l10n.finish),
+            Tab(text: l10n.settings),
           ],
         ),
       ),
@@ -88,7 +91,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         controller: _tabController,
         children: [
           const _AdminUsersTab(),
-          _buildCreateMatchTab(),
+          _buildCreateMatchTab(l10n),
           _AdminFinishTab(onFinish: _showFinishDialog),
           _buildSettingsTab(),
         ],
@@ -97,36 +100,32 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   }
 
   Future<void> _syncFifaFixtures() async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _syncingFifa = true);
     try {
       final result = await ref
           .read(adminControllerProvider)
           .syncFifaFixturesNow();
-      final matches = result['matchesSynced'] ?? 0;
-      final leagues = result['leaguesSynced'] ?? 0;
+      final matches = result['matchesSynced'] as int? ?? 0;
+      final leagues = result['leaguesSynced'] as int? ?? 0;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'FIFA sincronizado: $matches partidos, $leagues ligas',
-            ),
-          ),
+          SnackBar(content: Text(l10n.fifaSynced(matches, leagues))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error sincronizando FIFA: $e')));
+        ).showSnackBar(SnackBar(content: Text('${l10n.syncFifaError}: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() => _syncingFifa = false);
-      }
+      if (mounted) setState(() => _syncingFifa = false);
     }
   }
 
   Widget _buildSettingsTab() {
+    final l10n = AppLocalizations.of(context)!;
     final configAsync = ref.watch(appConfigProvider);
 
     return configAsync.when(
@@ -156,9 +155,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Predicciones',
-                      style: TextStyle(
+                    Text(
+                      l10n.predictionSettings,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -167,10 +166,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     TextField(
                       controller: _predictionLockCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Cerrar predicciones X horas antes',
-                        helperText:
-                            'Usa 0 para aceptar hasta la hora de inicio.',
+                      decoration: InputDecoration(
+                        labelText: l10n.predictionLockLabel,
+                        helperText: l10n.predictionLockHelper,
                       ),
                     ),
                   ],
@@ -184,9 +182,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'Trivia',
-                      style: TextStyle(
+                    Text(
+                      l10n.triviaSettings,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -195,8 +193,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                     TextField(
                       controller: _triviaLimitCtrl,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Preguntas por usuario por día',
+                      decoration: InputDecoration(
+                        labelText: l10n.triviaDailyLimitLabel,
                       ),
                     ),
                   ],
@@ -213,23 +211,24 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.save),
-              label: const Text('Guardar ajustes'),
+              label: Text(l10n.saveSettings),
             ),
           ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Error: $error')),
+      error: (error, _) => Center(child: Text('${l10n.error}: $error')),
     );
   }
 
   Future<void> _saveSettings() async {
+    final l10n = AppLocalizations.of(context)!;
     final lockHours = int.tryParse(_predictionLockCtrl.text.trim());
     final triviaLimit = int.tryParse(_triviaLimitCtrl.text.trim());
     if (lockHours == null || triviaLimit == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Revisá los valores numéricos')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.checkNumericValues)));
       return;
     }
 
@@ -241,59 +240,53 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Ajustes guardados')));
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsSaved)));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() => _savingSettings = false);
-      }
+      if (mounted) setState(() => _savingSettings = false);
     }
   }
 
-  // --- TAB 2: CREAR PARTIDO ---
-  Widget _buildCreateMatchTab() {
+  Widget _buildCreateMatchTab(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
           TextField(
             controller: _homeCtrl,
-            decoration: const InputDecoration(labelText: 'Equipo Local'),
+            decoration: InputDecoration(labelText: l10n.homeTeam),
           ),
           TextField(
             controller: _awayCtrl,
-            decoration: const InputDecoration(labelText: 'Equipo Visitante'),
+            decoration: InputDecoration(labelText: l10n.awayTeam),
           ),
           TextField(
             controller: _phaseCtrl,
-            decoration: const InputDecoration(labelText: 'Fase (Ej: Grupo A)'),
+            decoration: InputDecoration(labelText: l10n.phaseExample),
           ),
           TextField(
             controller: _dateCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Fecha y Hora (YYYY-MM-DD HH:MM)',
-            ),
+            decoration: InputDecoration(labelText: l10n.dateTimeFormat),
             keyboardType: TextInputType.datetime,
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
             initialValue: _lockHours,
-            decoration: const InputDecoration(
-              labelText: 'Bloquear predicciones X horas antes',
-            ),
+            decoration: InputDecoration(labelText: l10n.lockPredictionsBefore),
             items: [1, 2, 4, 6, 12, 24, 48].map((h) {
-              return DropdownMenuItem(value: h, child: Text('$h horas antes'));
+              return DropdownMenuItem(
+                value: h,
+                child: Text(l10n.hoursBefore(h)),
+              );
             }).toList(),
             onChanged: (val) {
-              if (val != null) {
-                setState(() => _lockHours = val);
-              }
+              if (val != null) setState(() => _lockHours = val);
             },
           ),
           const SizedBox(height: 20),
@@ -313,9 +306,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                       lockHoursBefore: _lockHours,
                     );
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✅ Partido creado')),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(l10n.matchCreated)));
                   _homeCtrl.clear();
                   _awayCtrl.clear();
                   _phaseCtrl.clear();
@@ -323,15 +316,13 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('❌ Error: Formato de fecha incorrecto'),
-                    ),
-                  );
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(l10n.dateFormatError)));
                 }
               }
             },
-            child: const Text('Crear Partido'),
+            child: Text(l10n.createMatch),
           ),
         ],
       ),
@@ -339,32 +330,33 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   }
 
   void _showFinishDialog(String matchId) {
+    final l10n = AppLocalizations.of(context)!;
     final homeCtrl = TextEditingController();
     final awayCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Finalizar Partido'),
+        title: Text(l10n.finishMatch),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: homeCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Goles Local'),
+              decoration: InputDecoration(labelText: l10n.homeGoals),
             ),
             TextField(
               controller: awayCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Goles Visita'),
+              decoration: InputDecoration(labelText: l10n.awayGoals),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -373,11 +365,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               await ref
                   .read(adminControllerProvider)
                   .finishMatch(matchId, h, a);
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
+              if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('Guardar'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -390,6 +380,7 @@ class _AdminUsersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final usersAsync = ref.watch(adminUsersProvider);
 
     return usersAsync.when(
@@ -400,7 +391,7 @@ class _AdminUsersTab extends ConsumerWidget {
             final user = users[index];
             final isActive = user['isActive'] ?? true;
             return ListTile(
-              title: Text(user['displayName'] ?? 'Sin nombre'),
+              title: Text(user['displayName'] ?? l10n.noName),
               subtitle: Text(user['email'] ?? ''),
               trailing: Switch(
                 value: isActive,
@@ -415,7 +406,7 @@ class _AdminUsersTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Error: $error')),
+      error: (error, _) => Center(child: Text('${l10n.error}: $error')),
     );
   }
 }
@@ -427,6 +418,7 @@ class _AdminFinishTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final matchesAsync = ref.watch(adminMatchesProvider);
 
     return matchesAsync.when(
@@ -435,7 +427,7 @@ class _AdminFinishTab extends ConsumerWidget {
             .where((m) => m['status'] != 'finished')
             .toList();
         if (pendingMatches.isEmpty) {
-          return const Center(child: Text('No hay partidos pendientes'));
+          return Center(child: Text(l10n.noPendingMatches));
         }
         return ListView.builder(
           itemCount: pendingMatches.length,
@@ -444,7 +436,7 @@ class _AdminFinishTab extends ConsumerWidget {
             final kickoff = match['kickoff'];
             final kickoffLabel = kickoff is Timestamp
                 ? DateFormat('dd/MM HH:mm').format(kickoff.toDate())
-                : 'Sin horario';
+                : l10n.noSchedule;
 
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -461,7 +453,7 @@ class _AdminFinishTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Error: $error')),
+      error: (error, _) => Center(child: Text('${l10n.error}: $error')),
     );
   }
 }

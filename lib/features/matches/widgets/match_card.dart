@@ -1,7 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
+import '../../../l10n/app_localizations.dart';
 import '../models/match_model.dart';
 import '../models/prediction_model.dart';
 
@@ -36,12 +38,10 @@ class _MatchCardState extends State<MatchCard> {
 
   void _loadPrediction() {
     if (widget.existingPrediction != null) {
-      if (_homeCtrl.text != widget.existingPrediction!.homeGuess.toString()) {
-        _homeCtrl.text = widget.existingPrediction!.homeGuess.toString();
-      }
-      if (_awayCtrl.text != widget.existingPrediction!.awayGuess.toString()) {
-        _awayCtrl.text = widget.existingPrediction!.awayGuess.toString();
-      }
+      final home = widget.existingPrediction!.homeGuess.toString();
+      final away = widget.existingPrediction!.awayGuess.toString();
+      if (_homeCtrl.text != home) _homeCtrl.text = home;
+      if (_awayCtrl.text != away) _awayCtrl.text = away;
     }
   }
 
@@ -52,18 +52,13 @@ class _MatchCardState extends State<MatchCard> {
     super.dispose();
   }
 
-  // ✅ CORRECCIÓN: Manejar kickoff nullable
   bool _canEdit() {
-    final now = DateTime.now();
     final kickoff = widget.match.kickoff;
-
-    // Si no hay fecha de kickoff, permitir edición por defecto
     if (kickoff == null) return true;
-
     final lockHours = widget.match.lockHoursBefore ?? 12;
-    final lockTime = kickoff.subtract(Duration(hours: lockHours));
-
-    return now.isBefore(lockTime);
+    return DateTime.now().isBefore(
+      kickoff.subtract(Duration(hours: lockHours)),
+    );
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -78,10 +73,11 @@ class _MatchCardState extends State<MatchCard> {
   }
 
   Future<void> _savePrediction() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) return;
 
     if (!_canEdit() && widget.existingPrediction != null) {
-      _showMessage('🔒 Cerrado 12hs antes');
+      _showMessage(l10n.closedBefore);
       return;
     }
 
@@ -90,7 +86,7 @@ class _MatchCardState extends State<MatchCard> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        _showMessage('❌ No autenticado', isError: true);
+        _showMessage(l10n.notAuthenticated, isError: true);
         return;
       }
 
@@ -103,25 +99,22 @@ class _MatchCardState extends State<MatchCard> {
           });
 
       if (result.data['success'] == true) {
-        _showMessage('✅ Guardada');
+        _showMessage(l10n.saved);
       } else {
-        _showMessage('❌ ${result.data['error']}', isError: true);
+        _showMessage('${l10n.error}: ${result.data['error']}', isError: true);
       }
 
-      if (mounted) {
-        setState(() => _loadPrediction());
-      }
+      if (mounted) setState(() => _loadPrediction());
     } catch (e) {
-      _showMessage('❌ $e', isError: true);
+      _showMessage('${l10n.error}: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isLocked = widget.match.isLocked || !_canEdit();
     final isFinished = widget.match.status == MatchStatus.finished;
     final hasPrediction = widget.existingPrediction != null;
@@ -145,9 +138,9 @@ class _MatchCardState extends State<MatchCard> {
                   style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
                 if (isFinished)
-                  const Text(
-                    'FINALIZADO',
-                    style: TextStyle(
+                  Text(
+                    l10n.finished,
+                    style: const TextStyle(
                       fontSize: 10,
                       color: Colors.red,
                       fontWeight: FontWeight.bold,
@@ -155,15 +148,13 @@ class _MatchCardState extends State<MatchCard> {
                   ),
                 if (!isFinished && !isLocked)
                   Text(
-                    _timeLeft(), // ✅ Ahora no requiere parámetro
+                    _timeLeft(l10n),
                     style: const TextStyle(fontSize: 10, color: Colors.green),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-
             _scoreboardRow(),
-
             if (!isFinished || hasPrediction) ...[
               const SizedBox(height: 8),
               Container(
@@ -176,7 +167,7 @@ class _MatchCardState extends State<MatchCard> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: _buildPredictionArea(isLocked, hasPrediction),
+                child: _buildPredictionArea(l10n, isLocked, hasPrediction),
               ),
             ],
             if (_venueLabel() != null) ...[
@@ -202,7 +193,7 @@ class _MatchCardState extends State<MatchCard> {
             if (widget.match.kickoff != null) ...[
               const SizedBox(height: 8),
               Text(
-                _kickoffLabel(),
+                _kickoffLabel(l10n),
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                 textAlign: TextAlign.center,
               ),
@@ -213,14 +204,18 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  Widget _buildPredictionArea(bool isLocked, bool hasPrediction) {
+  Widget _buildPredictionArea(
+    AppLocalizations l10n,
+    bool isLocked,
+    bool hasPrediction,
+  ) {
     if (hasPrediction) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Tu prediccion: ',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            '${l10n.yourPrediction} ',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           Text(
             _homeCtrl.text,
@@ -371,27 +366,24 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  // ✅ CORRECCIÓN: Manejar kickoff nullable + sin parámetro
-  String _timeLeft() {
+  String _timeLeft(AppLocalizations l10n) {
     final kickoff = widget.match.kickoff;
-
-    // Si no hay fecha, mostrar mensaje genérico
-    if (kickoff == null) return 'Fecha TBA';
+    if (kickoff == null) return l10n.dateTba;
 
     final diff = kickoff.difference(DateTime.now());
-    if (diff.inMinutes < 0) return 'En juego';
+    if (diff.inMinutes < 0) return l10n.inPlay;
     if (diff.inHours < 24) {
-      return 'Hoy ${DateFormat('HH:mm').format(kickoff.toLocal())}';
+      return l10n.todayAt(DateFormat('HH:mm').format(kickoff.toLocal()));
     }
     return DateFormat('d/M HH:mm').format(kickoff.toLocal());
   }
 
-  String _kickoffLabel() {
+  String _kickoffLabel(AppLocalizations l10n) {
     final kickoff = widget.match.kickoff;
-    if (kickoff == null) return 'Fecha a confirmar';
+    if (kickoff == null) return l10n.dateToBeConfirmed;
     final local = kickoff.toLocal();
     final formatted = DateFormat('EEEE d/MM/y HH:mm').format(local);
-    return '$formatted - hora local del dispositivo (${_timezoneLabel(local)})';
+    return l10n.localDeviceTime(formatted, _timezoneLabel(local));
   }
 
   String _timezoneLabel(DateTime local) {

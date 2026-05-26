@@ -8,16 +8,234 @@
   "googleLogin": "Continue with Google",
   "noAccount": "Don't have an account?",
   "signUp": "Sign Up",
+  "signOut": "Sign Out",
+  "name": "Name",
+  "alreadyHaveAccount": "Already have an account? Sign in",
+  "incorrectCredentials": "Incorrect email or password",
+  "emailAlreadyInUse": "This email is already registered",
   "errorRequired": "This field is required",
   "errorEmail": "Enter a valid email",
   "errorPassword": "Min 6 characters",
   "errorAuth": "Error: {error}",
   "@errorAuth": {
     "placeholders": {
-      "error": {
-        "type": "String"
-      }
+      "error": { "type": "String" }
     }
   },
-  "signOut": "Sign Out"
+  "error": "Error",
+  "home": "Home",
+  "fixture": "Fixture",
+  "trivia": "Trivia",
+  "groups": "Groups",
+  "rankings": "Rankings",
+  "profile": "Profile",
+  "admin": "Admin",
+  "settings": "Settings",
+  "language": "Language",
+  "spanish": "Español",
+  "english": "English",
+  "languageChanged": "Language: {language}",
+  "@languageChanged": {
+    "placeholders": {
+      "language": { "type": "String" }
+    }
+  },
+  "notifications": "Notifications",
+  "enablePush": "Enable push",
+  "close": "Close",
+  "save": "Save",
+  "cancel": "Cancel",
+  "create": "Create",
+  "join": "Join",
+  "play": "Play",
+  "all": "All",
+  "allLeagues": "All leagues",
+  "noName": "No name",
+  "unnamed": "Unnamed",
+  "anonymous": "Anonymous",
+  "unspecified": "Not specified",
+  "helloUser": "Hi, {name}!",
+  "@helloUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "user": "User",
+  "chooseSection": "Choose a section to start:",
+  "fixtureSubtitle": "Predict matches",
+  "triviaSubtitle": "Quick questions",
+  "groupsSubtitle": "Compete with friends",
+  "rankingsSubtitle": "Leaderboard",
+  "profileSubtitle": "My data and stats",
+  "settingsSubtitle": "Language, notifications",
+  "adminSubtitle": "Management",
+  "myProfile": "My Profile",
+  "myStats": "Your Stats",
+  "points": "Points",
+  "streak": "Streak",
+  "leaguesToPlay": "Leagues to play",
+  "leaguesSaved": "Leagues saved",
+  "noLeagueSelection": "No selection: all leagues for the day are shown.",
+  "selectedLeagueCount": "{count} leagues selected",
+  "@selectedLeagueCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "errorLoadingLeagues": "Error loading leagues",
+  "predictions": "Predictions",
+  "totalPoints": "Total points",
+  "triviaPoints": "Trivia points",
+  "currentStreak": "Current streak",
+  "bestStreak": "Best streak",
+  "answeredQuestions": "Answered questions",
+  "location": "Location",
+  "country": "Country",
+  "provinceState": "State/Province",
+  "city": "City",
+  "myGroups": "My Groups",
+  "createGroup": "Create Group",
+  "groupName": "Group Name",
+  "groupNameHint": "E.g. Office, Family, Friends",
+  "leagueCompetition": "League/Competition:",
+  "onlyThisLeague": "Only this league",
+  "leagueExclusiveSubtitle": "The ranking will only count matches from the selected league",
+  "groupCreated": "Group created",
+  "selectLeagueWarning": "Select a league to continue",
+  "joinGroup": "Join Group",
+  "sixCharacterCode": "6-character code",
+  "codeExample": "E.g. X7K9P2",
+  "joinedGroup": "You joined the group",
+  "noGroupsYet": "You do not belong to any group yet.",
+  "code": "Code",
+  "league": "League",
+  "allLeaguesName": "All leagues",
+  "exclusive": "exclusive",
+  "inviteWhatsapp": "Invite via WhatsApp",
+  "codeCopied": "Code copied: {code}",
+  "@codeCopied": {
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "whatsappInvite": "I invite you to play in my Footrix group \"{groupName}\".\nGroup code: {code}\nOpen Footrix > Groups > Join group and paste the code.",
+  "@whatsappInvite": {
+    "placeholders": {
+      "groupName": { "type": "String" },
+      "code": { "type": "String" }
+    }
+  },
+  "rankingsTitle": "Rankings",
+  "clearFilters": "Clear filters",
+  "type": "Type:",
+  "combined": "Combined",
+  "worldwide": "Worldwide",
+  "province": "State",
+  "filterHint": "Filter...",
+  "noDataForLeague": "No data for this league",
+  "noUsersForFilter": "No users for this filter",
+  "noLocation": "No location",
+  "pointsSuffix": "{points} pts",
+  "@pointsSuffix": {
+    "placeholders": {
+      "points": { "type": "int" }
+    }
+  },
+  "adminPanel": "Admin Panel",
+  "noAdminPermission": "You do not have admin permissions",
+  "syncFifa": "Sync FIFA",
+  "users": "Users",
+  "createMatch": "Create Match",
+  "finish": "Finish",
+  "fifaSynced": "FIFA synced: {matches} matches, {leagues} leagues",
+  "@fifaSynced": {
+    "placeholders": {
+      "matches": { "type": "int" },
+      "leagues": { "type": "int" }
+    }
+  },
+  "syncFifaError": "Error syncing FIFA",
+  "predictionSettings": "Predictions",
+  "predictionLockLabel": "Close predictions X hours before",
+  "predictionLockHelper": "Use 0 to accept predictions until kickoff.",
+  "triviaSettings": "Trivia",
+  "triviaDailyLimitLabel": "Questions per user per day",
+  "saveSettings": "Save settings",
+  "checkNumericValues": "Check the numeric values",
+  "settingsSaved": "Settings saved",
+  "homeTeam": "Home Team",
+  "awayTeam": "Away Team",
+  "phaseExample": "Phase (E.g. Group A)",
+  "dateTimeFormat": "Date and Time (YYYY-MM-DD HH:MM)",
+  "lockPredictionsBefore": "Lock predictions X hours before",
+  "hoursBefore": "{hours} hours before",
+  "@hoursBefore": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "matchCreated": "Match created",
+  "dateFormatError": "Error: Incorrect date format",
+  "finishMatch": "Finish Match",
+  "homeGoals": "Home Goals",
+  "awayGoals": "Away Goals",
+  "noPendingMatches": "No pending matches",
+  "noSchedule": "No schedule",
+  "footballTrivia": "Football Trivia",
+  "noQuestionsAvailable": "No questions available",
+  "secondsLeft": "{seconds} seconds",
+  "@secondsLeft": {
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "timeUp": "Time up",
+  "alreadyAnsweredQuestion": "You had already answered this question",
+  "correctPoints": "Correct: +{points} pts",
+  "@correctPoints": {
+    "placeholders": {
+      "points": { "type": "int" }
+    }
+  },
+  "incorrect": "Incorrect",
+  "nextQuestion": "Next question",
+  "moreOptions": "More options",
+  "past": "Past",
+  "today": "Today",
+  "tomorrow": "Tomorrow",
+  "more": "More",
+  "noPastMatches": "No past matches for your leagues.",
+  "noMatchesToday": "No matches today.",
+  "noMatchesTomorrow": "No matches tomorrow.",
+  "noMatchesDate": "No matches for this date.",
+  "noMoreMatches": "No more loaded matches.",
+  "unableLoadFixture": "Could not load the fixture.",
+  "live": "Live",
+  "otherTournaments": "Other tournaments",
+  "detail": "Detail",
+  "matchLocked": "Match locked",
+  "homeShort": "Home",
+  "awayShort": "Away",
+  "sendPrediction": "Send Prediction",
+  "finished": "FINISHED",
+  "yourPrediction": "Your prediction:",
+  "closedBefore": "Closed 12h before",
+  "notAuthenticated": "Not authenticated",
+  "saved": "Saved",
+  "dateTba": "Date TBA",
+  "inPlay": "In play",
+  "todayAt": "Today {time}",
+  "@todayAt": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "dateToBeConfirmed": "Date to be confirmed",
+  "localDeviceTime": "{date} - device local time ({zone})",
+  "@localDeviceTime": {
+    "placeholders": {
+      "date": { "type": "String" },
+      "zone": { "type": "String" }
+    }
+  }
 }
