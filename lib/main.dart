@@ -122,8 +122,10 @@ class FootrixApp extends ConsumerWidget {
       supportedLocales: const [Locale('es'), Locale('en')],
       localeResolutionCallback: (locale, supported) {
         final target = locale ?? const Locale('es');
-        if (supported.contains(target)) {
-          return target;
+        for (final supportedLocale in supported) {
+          if (supportedLocale.languageCode == target.languageCode) {
+            return supportedLocale;
+          }
         }
         return const Locale('es');
       },
