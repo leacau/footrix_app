@@ -19,10 +19,12 @@ export {
 	adminCreateMatch,
 	adminFinishMatch,
 	adminToggleUserStatus,
+	adminUpdatePredictionSettings,
+	adminUpdateTriviaSettings,
 } from './adminActions';
 
 // ==========================================
-// ✅ NUEVAS: Sync con TheSportsDB
+// Sync con FIFA
 // ==========================================
 export { syncFixturesDaily } from './syncFixturesDaily';
 export { syncFixturesNow, refreshLeagueCatalog } from './syncFixturesDaily';

@@ -7,8 +7,7 @@ class FootballMatch {
   final String homeTeam;
   final String awayTeam;
   final String phase;
-  final DateTime?
-  kickoff; // ✅ CAMBIO: nullable porque la API puede no enviar fecha
+  final DateTime? kickoff;
   final MatchStatus status;
   final int? homeScore;
   final int? awayScore;
@@ -16,14 +15,21 @@ class FootballMatch {
   final int? awayYellowCards;
   final bool hasPenalties;
   final int? lockHoursBefore;
-  final String? leagueId; // ✅ Agregado para filtros por liga
+  final String? leagueId;
+  final String? venue;
+  final String? venueCity;
+  final String? homeTeamLogo;
+  final String? awayTeamLogo;
+  final String? competitionName;
+  final String? competitionEmblem;
+  final String? apiSource;
 
   FootballMatch({
     required this.id,
     required this.homeTeam,
     required this.awayTeam,
     required this.phase,
-    this.kickoff, // ✅ Opcional
+    this.kickoff,
     this.status = MatchStatus.scheduled,
     this.homeScore,
     this.awayScore,
@@ -32,21 +38,25 @@ class FootballMatch {
     this.hasPenalties = false,
     this.lockHoursBefore,
     this.leagueId,
+    this.venue,
+    this.venueCity,
+    this.homeTeamLogo,
+    this.awayTeamLogo,
+    this.competitionName,
+    this.competitionEmblem,
+    this.apiSource,
   });
 
   factory FootballMatch.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-
-    // ✅ Manejo seguro de kickoff nullable
-    Timestamp? kickoffTimestamp = data['kickoff'] as Timestamp?;
-    DateTime? kickoffDate = kickoffTimestamp?.toDate();
+    final kickoffTimestamp = data['kickoff'] as Timestamp?;
 
     return FootballMatch(
       id: doc.id,
       homeTeam: data['homeTeam'] ?? '',
       awayTeam: data['awayTeam'] ?? '',
       phase: data['phase'] ?? '',
-      kickoff: kickoffDate, // ✅ Puede ser null
+      kickoff: kickoffTimestamp?.toDate(),
       status: _statusFromString(data['status']),
       homeScore: data['homeScore'] as int?,
       awayScore: data['awayScore'] as int?,
@@ -55,6 +65,13 @@ class FootballMatch {
       hasPenalties: data['hasPenalties'] ?? false,
       lockHoursBefore: data['lockHoursBefore'] as int?,
       leagueId: data['leagueId'] as String?,
+      venue: data['venue'] as String?,
+      venueCity: data['venueCity'] as String?,
+      homeTeamLogo: data['homeTeamLogo'] as String?,
+      awayTeamLogo: data['awayTeamLogo'] as String?,
+      competitionName: data['competitionName'] as String?,
+      competitionEmblem: data['competitionEmblem'] as String?,
+      apiSource: data['apiSource'] as String?,
     );
   }
 
@@ -83,12 +100,18 @@ class FootballMatch {
       'hasPenalties': hasPenalties,
       if (lockHoursBefore != null) 'lockHoursBefore': lockHoursBefore,
       if (leagueId != null) 'leagueId': leagueId,
+      if (venue != null) 'venue': venue,
+      if (venueCity != null) 'venueCity': venueCity,
+      if (homeTeamLogo != null) 'homeTeamLogo': homeTeamLogo,
+      if (awayTeamLogo != null) 'awayTeamLogo': awayTeamLogo,
+      if (competitionName != null) 'competitionName': competitionName,
+      if (competitionEmblem != null) 'competitionEmblem': competitionEmblem,
+      if (apiSource != null) 'apiSource': apiSource,
     };
   }
 
-  // ✅ isLocked maneja kickoff nullable
   bool get isLocked {
-    if (kickoff == null) return false; // Si no hay fecha, no se puede bloquear
+    if (kickoff == null) return false;
     return DateTime.now().isAfter(kickoff!);
   }
 }

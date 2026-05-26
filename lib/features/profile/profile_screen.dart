@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../leagues/leagues_provider.dart';
+
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -24,6 +26,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int _triviaStreak = 0;
   int _triviaBestStreak = 0;
   int _triviaAnswered = 0;
+  Set<String> _selectedLeagueIds = {};
+  bool _savingLeagues = false;
 
   @override
   void initState() {
@@ -48,6 +52,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _triviaStreak = data['triviaStreak'] as int? ?? 0;
         _triviaBestStreak = data['triviaBestStreak'] as int? ?? 0;
         _triviaAnswered = data['triviaAnswered'] as int? ?? 0;
+        _selectedLeagueIds =
+            (data['selectedLeagueIds'] as List<dynamic>? ?? const [])
+                .whereType<String>()
+                .toSet();
         if (mounted) setState(() {});
       }
     }
@@ -79,6 +87,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       // ✅ CORRECCIÓN: usar 'mounted' (del State) para setState
       if (mounted) {
         setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _saveLeaguePreferences() async {
+    setState(() => _savingLeagues = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'selectedLeagueIds': _selectedLeagueIds.toList()..sort(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Ligas guardadas')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingLeagues = false);
       }
     }
   }
@@ -145,6 +179,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              _leaguePreferencesCard(),
               const SizedBox(height: 16),
               Card(
                 child: Padding(
@@ -299,6 +335,94 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _leaguePreferencesCard() {
+    final leaguesAsync = ref.watch(leaguesProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Ligas para jugar',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _savingLeagues ? null : _saveLeaguePreferences,
+                  child: _savingLeagues
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Guardar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _selectedLeagueIds.isEmpty
+                  ? 'Sin selección: se muestran todas las ligas del día.'
+                  : '${_selectedLeagueIds.length} ligas seleccionadas',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 8),
+            leaguesAsync.when(
+              data: (leagues) => ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 320),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: leagues.length,
+                  itemBuilder: (context, index) {
+                    final league = leagues[index];
+                    final id = league['id'] as String;
+                    final name =
+                        league['name'] as String? ??
+                        league['shortName'] as String? ??
+                        id;
+                    return CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      value: _selectedLeagueIds.contains(id),
+                      title: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            _selectedLeagueIds.add(id);
+                          } else {
+                            _selectedLeagueIds.remove(id);
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+              loading: () => const Padding(
+                padding: EdgeInsets.all(12),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (error, _) => Text(
+                'Error cargando ligas: $error',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -1,4 +1,4 @@
-package com.footrix.footrix
+package com.footrix.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -10,12 +10,13 @@ import '../../features/groups/groups_screen.dart';
 import '../../features/notifications/notification_handler.dart';
 import '../../features/trivia/trivia_screen.dart';
 import '../../features/home/home_screen.dart';
-import '../../features/admin/admin_screen.dart'; // <--- AGREGAR
+import '../../features/admin/admin_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
 
+    // ✅ CORRECCIÓN: Usar ref.read() en lugar de ref.watch() dentro de redirect
     redirect: (context, state) {
       // 1. Verificar si hay una ruta pendiente de una notificación
       final pendingRoute = NotificationHandler.getPendingRoute();
@@ -25,7 +26,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // 2. Lógica de auth normal
-      final auth = ref.watch(authProvider);
+      // ✅ CORRECCIÓN: ref.read() en lugar de ref.watch() para evitar errores de Riverpod en callbacks
+      final auth = ref.read(authProvider);
 
       // ✅ Caso loading: no redirigir
       if (auth is AsyncLoading) {

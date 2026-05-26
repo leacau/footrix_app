@@ -8,7 +8,7 @@
 PRODUCT_NAME = footrix
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.footrix.footrix
+PRODUCT_BUNDLE_IDENTIFIER = com.footrix.app
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.footrix. All rights reserved.

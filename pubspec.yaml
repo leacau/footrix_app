@@ -13,6 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: 0.20.2
+  cupertino_icons: ^1.0.8
 
   flutter_local_notifications: ^17.2.0
 
@@ -32,14 +33,17 @@ dependencies:
 
   # PWA: Para detectar si está instalado
   package_info_plus: ^8.0.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+dependency_overrides:
+  url_launcher_android: 6.3.17
+
 flutter:
   uses-material-design: true
   generate: true
   # ✅ assets: section removida (no necesaria para PWA icons)
-

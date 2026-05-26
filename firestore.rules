@@ -32,7 +32,7 @@ service cloud.firestore {
     }
 
     function userEditableFields() {
-      return ['country', 'province', 'city', 'updatedAt', 'photoURL', 'displayName'];
+      return ['country', 'province', 'city', 'updatedAt', 'photoURL', 'displayName', 'selectedLeagueIds'];
     }
 
     match /users/{userId} {
@@ -57,6 +57,13 @@ service cloud.firestore {
       allow create, update: if isOwner(userId)
         && request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt']);
       allow delete: if isOwner(userId);
+
+      match /tokens/{tokenId} {
+        allow read: if false;
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['token', 'platform', 'createdAt', 'updatedAt']);
+        allow delete: if isOwner(userId);
+      }
     }
 
     match /matches/{matchId} {
@@ -65,11 +72,17 @@ service cloud.firestore {
     }
 
     match /predictions/{predictionId} {
-      allow read: if signedIn() && request.auth.uid == resource.data.userId;
+      allow get: if signedIn() && predictionId.matches(request.auth.uid + '_.*');
+      allow list: if signedIn() && resource.data.userId == request.auth.uid;
       allow write: if false;
     }
 
     match /leagues/{leagueId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /app_config/{configId} {
       allow read: if signedIn();
       allow write: if false;
     }

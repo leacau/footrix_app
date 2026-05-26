@@ -111,6 +111,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
   }
 
   void _nextQuestion() {
+    ref.invalidate(triviaQuestionsProvider);
     setState(() {
       _currentQuestion = null;
       _selectedOption = null;

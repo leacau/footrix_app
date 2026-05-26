@@ -5,7 +5,7 @@ import 'models/match_model.dart';
 import 'models/prediction_model.dart';
 
 final matchesProvider = StreamProvider<List<FootballMatch>>((ref) {
-  final cutoff = DateTime.now().subtract(const Duration(days: 2));
+  final cutoff = DateTime.now().subtract(const Duration(days: 30));
   return FirebaseFirestore.instance
       .collection('matches')
       .where('kickoff', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
@@ -13,6 +13,7 @@ final matchesProvider = StreamProvider<List<FootballMatch>>((ref) {
       .snapshots()
       .map(
         (snapshot) => snapshot.docs
+            .where((doc) => doc.data()['apiSource'] == 'fifa')
             .map((doc) => FootballMatch.fromFirestore(doc))
             .toList(),
       );

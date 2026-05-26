@@ -11,11 +11,26 @@ final adminUsersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
 });
 
 final adminMatchesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final cutoff = DateTime.now().subtract(const Duration(days: 1));
   return FirebaseFirestore.instance
       .collection('matches')
+      .where('kickoff', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
       .orderBy('kickoff', descending: false)
+      .limit(250)
       .snapshots()
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+});
+
+final appConfigProvider = StreamProvider<Map<String, dynamic>>((ref) {
+  return FirebaseFirestore.instance.collection('app_config').snapshots().map((
+    snap,
+  ) {
+    final data = <String, dynamic>{};
+    for (final doc in snap.docs) {
+      data[doc.id] = doc.data();
+    }
+    return data;
+  });
 });
 
 class AdminController {
@@ -49,6 +64,23 @@ class AdminController {
     await _functions.httpsCallable('adminToggleUserStatus').call({
       'userId': userId,
       'isActive': isActive,
+    });
+  }
+
+  Future<Map<String, dynamic>> syncFifaFixturesNow() async {
+    final result = await _functions.httpsCallable('syncFixturesNow').call();
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
+  Future<void> updatePredictionSettings(int lockHoursBefore) async {
+    await _functions.httpsCallable('adminUpdatePredictionSettings').call({
+      'lockHoursBefore': lockHoursBefore,
+    });
+  }
+
+  Future<void> updateTriviaSettings(int dailyQuestionLimit) async {
+    await _functions.httpsCallable('adminUpdateTriviaSettings').call({
+      'dailyQuestionLimit': dailyQuestionLimit,
     });
   }
 }

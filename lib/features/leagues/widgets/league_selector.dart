@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../leagues_provider.dart';
-// ✅ El import de league_model.dart NO es necesario aquí porque usamos dynamic del provider
-// import '../models/league_model.dart'; // ← Comentado para evitar warning
 
 class LeagueSelector extends ConsumerWidget {
   final String? selectedLeagueId;
@@ -21,48 +20,57 @@ class LeagueSelector extends ConsumerWidget {
     final leaguesAsync = ref.watch(leaguesProvider);
 
     return leaguesAsync.when(
-      // ✅ CORRECCIÓN CLAVE: 'data:' debe estar ESCRITO explícitamente
-      data: (List<dynamic> leagues) {
+      data: (leagues) {
         return DropdownButton<String>(
           hint: const Text('Todas las ligas'),
           value: selectedLeagueId,
           isExpanded: true,
           items: [
             if (showAllOption)
-              const DropdownMenuItem(value: null, child: Text('🌍 Todas')),
+              const DropdownMenuItem(value: null, child: Text('Todas')),
             ...leagues.map((league) {
-              // ✅ Cast seguro a Map para acceder a los campos
-              final data = league as Map<String, dynamic>;
-              final id = data['id'] as String;
+              final id = league['id'] as String;
               final shortName =
-                  data['shortName'] as String? ??
-                  data['name'] as String? ??
+                  league['shortName'] as String? ??
+                  league['name'] as String? ??
                   'Sin nombre';
-              final country = data['country'] as String? ?? '';
-              final logo = data['logo'] as String?;
+              final country = league['country'] as String? ?? '';
+              final logo = league['logo'] as String?;
 
               return DropdownMenuItem(
                 value: id,
                 child: Row(
                   children: [
-                    if (logo != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.network(
-                          logo,
-                          width: 20,
-                          height: 20,
-                          // ✅ CORRECCIÓN: usar '_' simple para todos los parámetros no usados
-                          errorBuilder: (_, _, _) =>
-                              const Icon(Icons.sports_soccer, size: 20),
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: logo != null && logo.trim().isNotEmpty
+                          ? Image.network(
+                              logo,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) =>
+                                  const Icon(Icons.sports_soccer, size: 20),
+                            )
+                          : const Icon(Icons.sports_soccer, size: 20),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        shortName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (country.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '($country)',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
                         ),
                       ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(shortName)),
-                    Text(
-                      '($country)',
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                    ),
+                    ],
                   ],
                 ),
               );
@@ -80,8 +88,8 @@ class LeagueSelector extends ConsumerWidget {
         height: 40,
         child: CircularProgressIndicator(strokeWidth: 2),
       ),
-      error: (Object e, StackTrace _) =>
-          Text('Error: $e', style: const TextStyle(color: Colors.red)),
+      error: (error, _) =>
+          Text('Error: $error', style: const TextStyle(color: Colors.red)),
     );
   }
 }

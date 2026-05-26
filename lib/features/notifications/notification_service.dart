@@ -1,20 +1,24 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'notification_handler.dart';
 
 class NotificationService {
   static final _messaging = FirebaseMessaging.instance;
   static final _localNotifications = FlutterLocalNotificationsPlugin();
+  static StreamSubscription<String>? _tokenRefreshSub;
+  static StreamSubscription<User?>? _authSub;
 
-  /// ✅ Inicializar FCM + listeners
   static Future<void> initialize({
     void Function(String)? onTokenRefresh,
     void Function(RemoteMessage)? onMessage,
   }) async {
-    // 1. Configurar notificaciones locales (para foreground en móvil)
     if (!kIsWeb) {
       const android = AndroidInitializationSettings('@mipmap/ic_launcher');
       const ios = DarwinInitializationSettings(
@@ -23,129 +27,159 @@ class NotificationService {
         requestSoundPermission: true,
       );
       await _localNotifications.initialize(
-        InitializationSettings(android: android, iOS: ios),
+        const InitializationSettings(android: android, iOS: ios),
         onDidReceiveNotificationResponse: (details) {
           NotificationHandler.handleNotificationTap(details.payload);
         },
       );
+      await _createAndroidNotificationChannel();
     }
 
-    // 2. Token refresh listener
-    if (onTokenRefresh != null) {
-      _messaging.onTokenRefresh.listen((token) {
-        onTokenRefresh(token);
-        // ✅ Suscribirse al topic del usuario cuando el token cambia
-        _subscribeToUserTopic();
-      });
-    }
+    await _tokenRefreshSub?.cancel();
+    _tokenRefreshSub = _messaging.onTokenRefresh.listen((token) async {
+      onTokenRefresh?.call(token);
+      await _registerTokenForCurrentUser(token);
+    });
 
-    // 3. Foreground message listener
-    FirebaseMessaging.onMessage.listen((message) {
-      debugPrint('🔔 onMessage: ${message.notification?.title}');
-
-      // Callback personalizado si se proveyó
-      if (onMessage != null) {
-        onMessage(message);
+    await _authSub?.cancel();
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user == null) return;
+      try {
+        final token = await _messaging.getToken(
+          vapidKey: kIsWeb ? _getVapidKey() : null,
+        );
+        if (token != null) {
+          await _registerTokenForCurrentUser(token);
+        }
+      } catch (e) {
+        debugPrint('Error registering FCM token after login: $e');
       }
+    });
 
-      // Mostrar notificación local en foreground (solo móvil)
+    FirebaseMessaging.onMessage.listen((message) {
+      debugPrint('onMessage: ${message.notification?.title}');
+      onMessage?.call(message);
       if (!kIsWeb) {
         _showLocalNotification(message);
       }
     });
 
-    // 4. Background/terminated message handler
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      debugPrint('🔔 onMessageOpenedApp: ${message.notification?.title}');
+      debugPrint('onMessageOpenedApp: ${message.notification?.title}');
       NotificationHandler.handleNotificationTap(message.data['route']);
     });
 
-    // 5. Get initial token (para registrar en backend si querés)
     try {
       final token = await _messaging.getToken(
         vapidKey: kIsWeb ? _getVapidKey() : null,
       );
       if (token != null) {
-        if (onTokenRefresh != null) {
-          onTokenRefresh(token);
-        }
-        // ✅ Suscribirse al topic del usuario
-        await _subscribeToUserTopic();
-        // ✅ Guardar token en Firestore
-        await _saveTokenToFirestore(token);
+        onTokenRefresh?.call(token);
+        await _registerTokenForCurrentUser(token);
       }
     } catch (e) {
-      debugPrint('❌ Error getting FCM token: $e');
+      debugPrint('Error getting FCM token: $e');
     }
   }
 
-  /// ✅ Suscribirse al topic del usuario (user_{uid})
+  static Future<void> _createAndroidNotificationChannel() async {
+    const channel = AndroidNotificationChannel(
+      'footrix_channel',
+      'Footrix Notifications',
+      description: 'Notificaciones de partidos, puntos y grupos',
+      importance: Importance.high,
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(channel);
+  }
+
+  static Future<void> _registerTokenForCurrentUser(String token) async {
+    await _subscribeToUserTopic();
+    await _saveTokenToFirestore(token);
+  }
+
   static Future<void> _subscribeToUserTopic() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final topic = 'user_${user.uid}';
-        await _messaging.subscribeToTopic(topic);
-        debugPrint('✅ Suscribirse al topic: $topic');
-      }
+      if (user == null) return;
+      final topic = 'user_${user.uid}';
+      await _messaging.subscribeToTopic(topic);
+      debugPrint('Subscribed to topic: $topic');
     } catch (e) {
-      debugPrint('❌ Error subscribing to topic: $e');
+      debugPrint('Error subscribing to topic: $e');
     }
   }
 
-  /// ✅ Guardar token en Firestore
   static Future<void> _saveTokenToFirestore(String token) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('user_tokens')
-            .doc(user.uid)
-            .set({
-              'token': token,
-              'platform': kIsWeb ? 'web' : 'mobile',
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
-        debugPrint('✅ Token guardado en Firestore para user ${user.uid}');
-      }
+      if (user == null) return;
+
+      final tokenId = base64Url.encode(utf8.encode(token));
+      final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
+      final userTokenDoc = FirebaseFirestore.instance
+          .collection('user_tokens')
+          .doc(user.uid);
+
+      await userTokenDoc.set({
+        'token': token,
+        'platform': platform,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      await userTokenDoc.collection('tokens').doc(tokenId).set({
+        'token': token,
+        'platform': platform,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      debugPrint('Token saved in Firestore for user ${user.uid}');
     } catch (e) {
-      debugPrint('❌ Error saving token to Firestore: $e');
+      debugPrint('Error saving token to Firestore: $e');
     }
   }
 
-  /// ✅ Solicitar permisos de notificación
   static Future<void> requestPermissions() async {
     if (kIsWeb) {
       await _messaging.requestPermission(alert: true, badge: true, sound: true);
-    } else {
-      await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-        criticalAlert: false,
-        provisional: false,
-      );
+      return;
     }
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+    await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      criticalAlert: false,
+      provisional: false,
+    );
   }
 
-  /// ✅ Mostrar notificación local en foreground (móvil)
   static Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
     if (notification == null) return;
 
-    final android = AndroidNotificationDetails(
+    const android = AndroidNotificationDetails(
       'footrix_channel',
       'Footrix Notifications',
       channelDescription: 'Notificaciones de partidos, puntos y grupos',
       importance: Importance.high,
       priority: Priority.high,
     );
-    final ios = DarwinNotificationDetails(
+    const ios = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
-    final details = NotificationDetails(android: android, iOS: ios);
+    const details = NotificationDetails(android: android, iOS: ios);
 
     await _localNotifications.show(
       notification.hashCode,
@@ -156,7 +190,6 @@ class NotificationService {
     );
   }
 
-  /// ✅ Obtener VAPID key para web
   static String _getVapidKey() {
     return const String.fromEnvironment(
       'VAPID_KEY',
@@ -165,8 +198,7 @@ class NotificationService {
     );
   }
 
-  /// ✅ Handler para mensajes en background
   static Future<void> handleBackgroundMessage(RemoteMessage message) async {
-    debugPrint('🔔 Background message: ${message.notification?.title}');
+    debugPrint('Background message: ${message.notification?.title}');
   }
 }

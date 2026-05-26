@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { sendNotificationToUser } from './sendUserNotification';
 
 export const notifyOnGroupInvite = functions.firestore
 	.document('groups/{groupId}')
@@ -9,74 +10,51 @@ export const notifyOnGroupInvite = functions.firestore
 
 		const beforeMembers = (before.members as string[]) || [];
 		const afterMembers = (after.members as string[]) || [];
-
-		// Encontrar nuevos miembros (los que están en after pero no en before)
 		const newMembers = afterMembers.filter(
 			(uid) => !beforeMembers.includes(uid),
 		);
 
 		if (newMembers.length === 0) {
-			return null; // No hay nuevos invitados
+			return null;
 		}
 
-		const groupName = after.name as string;
+		const groupName = (after.name as string) || 'Footrix';
 		const groupId = context.params.groupId;
 
 		for (const userId of newMembers) {
-			// Obtener token del usuario invitado
 			const userDoc = await admin
 				.firestore()
 				.collection('users')
 				.doc(userId)
 				.get();
-			const tokenDoc = await admin
-				.firestore()
-				.collection('user_tokens')
-				.doc(userId)
-				.get();
 
-			const fcmToken = tokenDoc.data()?.token as string | undefined;
-			const displayName = (userDoc.data()?.displayName as string) || 'Amigo';
+			const displayName = (userDoc.data()?.displayName as string) || 'Alguien';
+			const result = await sendNotificationToUser(userId, {
+				notification: {
+					title: 'Te invitaron a un grupo',
+					body: `${displayName} te agrego a "${groupName}"`,
+				},
+				data: {
+					route: '/groups',
+					type: 'group_invite',
+					groupId,
+				},
+				android: {
+					notification: {
+						channelId: 'footrix_channel',
+						sound: 'default',
+					},
+				},
+				apns: {
+					payload: {
+						aps: { sound: 'default' },
+					},
+				},
+			});
 
-			const title = '👥 ¡Te invitaron!';
-			const body = `${displayName} te agregó al grupo "${groupName}"`;
-
-			if (fcmToken) {
-				await admin.messaging().send({
-					token: fcmToken,
-					notification: { title, body },
-					data: {
-						route: '/groups',
-						type: 'group_invite',
-						groupId,
-					},
-					android: {
-						notification: {
-							channelId: 'footrix_channel',
-							sound: 'default',
-						},
-					},
-					apns: {
-						payload: {
-							aps: {
-								sound: 'default',
-							},
-						},
-					},
-				});
-				console.log(`✅ Invite push enviado a ${userId}`);
-			} else {
-				// Fallback a topic
-				await admin.messaging().send({
-					topic: `user_${userId}`,
-					notification: { title, body },
-					data: {
-						route: '/groups',
-						type: 'group_invite',
-					},
-				});
-				console.log(`✅ Invite push enviado a topic user_${userId}`);
-			}
+			console.log(
+				`Invite push sent to ${userId} via ${result.target}: ok=${result.successCount}, failed=${result.failureCount}`,
+			);
 		}
 
 		return null;

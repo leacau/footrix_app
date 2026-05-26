@@ -62,8 +62,18 @@ export const validatePredictionEdit = functions.https.onCall(
 		}
 
 		const kickoffTime = kickoff.toMillis();
+		const settingsDoc = await admin
+			.firestore()
+			.collection('app_config')
+			.doc('predictions')
+			.get();
+		const settingsLockHours = settingsDoc.data()?.lockHoursBefore;
 		const lockHours =
-			typeof match.lockHoursBefore === 'number' ? match.lockHoursBefore : 12;
+			typeof settingsLockHours === 'number'
+				? settingsLockHours
+				: typeof match.lockHoursBefore === 'number'
+					? match.lockHoursBefore
+					: 12;
 		const lockTime = kickoffTime - lockHours * 60 * 60 * 1000;
 
 		if (Date.now() >= lockTime) {

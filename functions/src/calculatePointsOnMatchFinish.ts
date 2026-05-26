@@ -10,6 +10,18 @@ export const calculatePointsOnMatchFinish = functions.firestore
 		// Solo ejecutar si el partido acaba de finalizar
 		if (before.status !== 'finished' && after.status === 'finished') {
 			const db = admin.firestore();
+			const finalHomeScore = after.homeScore;
+			const finalAwayScore = after.awayScore;
+
+			if (
+				typeof finalHomeScore !== 'number' ||
+				typeof finalAwayScore !== 'number'
+			) {
+				console.log(
+					`Skipping points for ${context.params.matchId}: final score is incomplete`,
+				);
+				return null;
+			}
 
 			// Obtener predicciones pendientes de este partido
 			const predictionsSnap = await db
@@ -36,8 +48,8 @@ export const calculatePointsOnMatchFinish = functions.firestore
 				// Valores seguros con fallback a 0
 				const homeGuess = (p.homeGuess as number) || 0;
 				const awayGuess = (p.awayGuess as number) || 0;
-				const homeScore = (after.homeScore as number) || 0;
-				const awayScore = (after.awayScore as number) || 0;
+				const homeScore = finalHomeScore;
+				const awayScore = finalAwayScore;
 
 				// 🎯 3 pts: Resultado EXACTO
 				if (homeGuess === homeScore && awayGuess === awayScore) {

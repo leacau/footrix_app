@@ -35,6 +35,21 @@ function readScore(value: unknown, field: string): number {
 	return value as number;
 }
 
+function readIntInRange(
+	value: unknown,
+	field: string,
+	min: number,
+	max: number,
+): number {
+	if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) {
+		throw new functions.https.HttpsError(
+			'invalid-argument',
+			`${field} invalido`,
+		);
+	}
+	return value as number;
+}
+
 export const adminCreateMatch = functions.https.onCall(async (data, context) => {
 	requireAdmin(context);
 
@@ -119,5 +134,55 @@ export const adminToggleUserStatus = functions.https.onCall(
 		});
 
 		return { success: true };
+	},
+);
+
+export const adminUpdatePredictionSettings = functions.https.onCall(
+	async (data, context) => {
+		requireAdmin(context);
+		const lockHoursBefore = readIntInRange(
+			data.lockHoursBefore,
+			'Horas de cierre',
+			0,
+			168,
+		);
+		const db = admin.firestore();
+
+		await db.collection('app_config').doc('predictions').set(
+			{
+				lockHoursBefore,
+				updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+				updatedBy: context.auth!.uid,
+			},
+			{ merge: true },
+		);
+
+		return {
+			success: true,
+			lockHoursBefore,
+		};
+	},
+);
+
+export const adminUpdateTriviaSettings = functions.https.onCall(
+	async (data, context) => {
+		requireAdmin(context);
+		const dailyQuestionLimit = readIntInRange(
+			data.dailyQuestionLimit,
+			'Preguntas por dia',
+			1,
+			100,
+		);
+
+		await admin.firestore().collection('app_config').doc('trivia').set(
+			{
+				dailyQuestionLimit,
+				updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+				updatedBy: context.auth!.uid,
+			},
+			{ merge: true },
+		);
+
+		return { success: true, dailyQuestionLimit };
 	},
 );

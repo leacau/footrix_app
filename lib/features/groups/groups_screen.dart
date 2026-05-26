@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../leagues/widgets/league_selector.dart';
 import 'groups_provider.dart';
 
@@ -94,13 +95,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
                               setState(() => _creating = true);
                               try {
-                                await ref.read(
+                                final code = await ref.read(
                                   createGroupProvider((
                                     name: _nameCtrl.text.trim(),
                                     leagueId: _selectedLeagueForGroup,
                                     isLeagueExclusive: _isLeagueExclusive,
                                   )).future,
                                 );
+                                final groupName = _nameCtrl.text.trim();
                                 _nameCtrl.clear();
 
                                 if (context.mounted) {
@@ -108,6 +110,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                                     const SnackBar(
                                       content: Text('✅ Grupo creado'),
                                     ),
+                                  );
+                                  _shareInvite(
+                                    code: code,
+                                    groupName: groupName,
                                   );
                                 }
                               } catch (e) {
@@ -238,7 +244,20 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                             ),
                           ],
                         ),
-                        trailing: Text('${(g['members'] as List).length} 👥'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${(g['members'] as List).length} 👥'),
+                            IconButton(
+                              tooltip: 'Invitar por WhatsApp',
+                              icon: const Icon(Icons.ios_share),
+                              onPressed: () => _shareInvite(
+                                code: g['code'] as String? ?? g['id'] as String,
+                                groupName: g['name'] as String? ?? 'mi grupo',
+                              ),
+                            ),
+                          ],
+                        ),
                         onTap: () {
                           // Aquí podrías navegar a un detalle del grupo
                         },
@@ -254,5 +273,25 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _shareInvite({
+    required String code,
+    required String groupName,
+  }) async {
+    if (code.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: code));
+    final message = Uri.encodeComponent(
+      'Te invito a jugar en mi grupo "$groupName" de Footrix.\n'
+      'Código del grupo: $code\n'
+      'Abrí Footrix > Grupos > Unirse a grupo y pegá el código.',
+    );
+    final uri = Uri.parse('https://wa.me/?text=$message');
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Código copiado: $code')));
+    }
   }
 }

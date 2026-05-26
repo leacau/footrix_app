@@ -162,42 +162,9 @@ class _MatchCardState extends State<MatchCard> {
             ),
             const SizedBox(height: 8),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.match.homeTeam,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _buildPredictionArea(
-                    isFinished,
-                    isLocked,
-                    hasPrediction,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    widget.match.awayTeam,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
+            _scoreboardRow(),
 
-            if (isFinished) ...[
+            if (!isFinished || hasPrediction) ...[
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -205,28 +172,31 @@ class _MatchCardState extends State<MatchCard> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.emoji_events,
-                      color: Colors.amber,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Resultado: ${widget.match.homeScore ?? 0} - ${widget.match.awayScore ?? 0}',
+                child: _buildPredictionArea(isLocked, hasPrediction),
+              ),
+            ],
+            if (_venueLabel() != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.stadium, size: 14, color: Colors.grey.shade700),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      _venueLabel()!,
                       style: TextStyle(
-                        color: Colors.green.shade800,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                        color: Colors.grey.shade700,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
             if (widget.match.kickoff != null) ...[
@@ -243,64 +213,39 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  Widget _buildPredictionArea(
-    bool isFinished,
-    bool isLocked,
-    bool hasPrediction,
-  ) {
+  Widget _buildPredictionArea(bool isLocked, bool hasPrediction) {
     if (hasPrediction) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _homeCtrl.text,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                child: Text('-'),
-              ),
-              Text(
-                _awayCtrl.text,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (isLocked) ...[
-                const SizedBox(width: 4),
-                const Icon(Icons.lock, size: 12, color: Colors.grey),
-              ],
-            ],
-          ),
-        ],
-      );
-    }
-
-    if (isFinished) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const Text(
+            'Tu prediccion: ',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
           Text(
-            '${widget.match.homeScore ?? 0}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            _homeCtrl.text,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.blue,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 4),
             child: Text('-'),
           ),
           Text(
-            '${widget.match.awayScore ?? 0}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            _awayCtrl.text,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Colors.blue,
+              fontWeight: FontWeight.w500,
+            ),
           ),
+          if (isLocked) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.lock, size: 12, color: Colors.grey),
+          ],
         ],
       );
     }
@@ -331,6 +276,69 @@ class _MatchCardState extends State<MatchCard> {
     return const Icon(Icons.lock_outline, color: Colors.red, size: 20);
   }
 
+  Widget _scoreboardRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: _teamName(widget.match.homeTeam, TextAlign.right)),
+        const SizedBox(width: 8),
+        _teamLogo(widget.match.homeTeamLogo),
+        const SizedBox(width: 10),
+        Container(
+          width: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: widget.match.status == MatchStatus.live
+                ? Colors.red.shade50
+                : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+            border: widget.match.status == MatchStatus.live
+                ? Border.all(color: Colors.red.shade200)
+                : null,
+          ),
+          child: Text(
+            _matchCenterLabel(),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: widget.match.status == MatchStatus.live ? 13 : 16,
+              color: widget.match.status == MatchStatus.live
+                  ? Colors.red.shade700
+                  : Colors.black87,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _teamLogo(widget.match.awayTeamLogo),
+        const SizedBox(width: 8),
+        Expanded(child: _teamName(widget.match.awayTeam, TextAlign.left)),
+      ],
+    );
+  }
+
+  Widget _teamName(String name, TextAlign align) {
+    return Text(
+      name,
+      textAlign: align,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontWeight: FontWeight.bold),
+    );
+  }
+
+  String _matchCenterLabel() {
+    final hasScore =
+        widget.match.homeScore != null && widget.match.awayScore != null;
+    if (hasScore) {
+      return '${widget.match.homeScore} - ${widget.match.awayScore}';
+    }
+    final kickoff = widget.match.kickoff;
+    if (kickoff == null) return '-';
+    return DateFormat('HH:mm').format(kickoff.toLocal());
+  }
+
   Widget _inputBox(TextEditingController ctrl) {
     return SizedBox(
       width: 35,
@@ -344,6 +352,22 @@ class _MatchCardState extends State<MatchCard> {
           border: InputBorder.none,
         ),
       ),
+    );
+  }
+
+  Widget _teamLogo(String? logoUrl) {
+    final hasLogo = logoUrl != null && logoUrl.trim().isNotEmpty;
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: hasLogo
+          ? Image.network(
+              logoUrl,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.sports_soccer, size: 22, color: Colors.grey),
+            )
+          : const Icon(Icons.sports_soccer, size: 22, color: Colors.grey),
     );
   }
 
@@ -366,8 +390,32 @@ class _MatchCardState extends State<MatchCard> {
     final kickoff = widget.match.kickoff;
     if (kickoff == null) return 'Fecha a confirmar';
     final local = kickoff.toLocal();
-    final zone = DateTime.now().timeZoneName;
-    final formatted = DateFormat('EEE d/M HH:mm').format(local);
-    return '$formatted - hora local del dispositivo ($zone)';
+    final formatted = DateFormat('EEEE d/MM/y HH:mm').format(local);
+    return '$formatted - hora local del dispositivo (${_timezoneLabel(local)})';
+  }
+
+  String _timezoneLabel(DateTime local) {
+    final offset = local.timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final absOffset = offset.abs();
+    final hours = absOffset.inHours.toString().padLeft(2, '0');
+    final minutes = (absOffset.inMinutes % 60).toString().padLeft(2, '0');
+    final utcOffset = 'UTC$sign$hours:$minutes';
+    final zoneName = local.timeZoneName.trim();
+    if (zoneName.isEmpty || zoneName == utcOffset) {
+      return utcOffset;
+    }
+    return '$zoneName, $utcOffset';
+  }
+
+  String? _venueLabel() {
+    final venue = widget.match.venue?.trim();
+    final city = widget.match.venueCity?.trim();
+    if ((venue == null || venue.isEmpty) && (city == null || city.isEmpty)) {
+      return null;
+    }
+    if (venue == null || venue.isEmpty) return city;
+    if (city == null || city.isEmpty) return venue;
+    return '$venue, $city';
   }
 }

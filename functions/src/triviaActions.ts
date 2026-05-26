@@ -18,15 +18,68 @@ function parseOption(value: unknown): number {
 	return value as number;
 }
 
+async function getQuestionDoc(questionId: string) {
+	const db = admin.firestore();
+	let questionDoc = await db.collection('trivia_questions').doc(questionId).get();
+	if (!questionDoc.exists) {
+		questionDoc = await db.collection('triviaQuestions').doc(questionId).get();
+	}
+	return questionDoc;
+}
+
+async function triviaDailyLimit(): Promise<number> {
+	const doc = await admin.firestore().collection('app_config').doc('trivia').get();
+	const value = doc.data()?.dailyQuestionLimit;
+	return typeof value === 'number' ? value : 10;
+}
+
+function startOfUtcDay(date = new Date()): admin.firestore.Timestamp {
+	return admin.firestore.Timestamp.fromDate(
+		new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())),
+	);
+}
+
+async function answeredQuestionIds(uid: string): Promise<Set<string>> {
+	const snap = await admin
+		.firestore()
+		.collection('trivia_answers')
+		.where('userId', '==', uid)
+		.get();
+	return new Set(
+		snap.docs
+			.map((doc) => doc.data().questionId)
+			.filter((id): id is string => typeof id === 'string'),
+	);
+}
+
+async function todayAnswerCount(uid: string): Promise<number> {
+	const snap = await admin
+		.firestore()
+		.collection('trivia_answers')
+		.where('userId', '==', uid)
+		.where('answeredAt', '>=', startOfUtcDay())
+		.count()
+		.get();
+	return snap.data().count;
+}
+
 export const getTriviaQuestions = functions.https.onCall(
 	async (_data, context) => {
-		requireAuth(context);
+		const uid = requireAuth(context);
+		const [limit, usedToday, answeredIds] = await Promise.all([
+			triviaDailyLimit(),
+			todayAnswerCount(uid),
+			answeredQuestionIds(uid),
+		]);
+		const remainingToday = Math.max(0, limit - usedToday);
+		if (remainingToday === 0) {
+			return { questions: [], remainingToday, dailyQuestionLimit: limit };
+		}
 
 		let snap = await admin
 			.firestore()
 			.collection('trivia_questions')
 			.where('active', '==', true)
-			.orderBy('createdAt', 'desc')
 			.limit(50)
 			.get();
 
@@ -39,8 +92,9 @@ export const getTriviaQuestions = functions.https.onCall(
 				.get();
 		}
 
-		return {
-			questions: snap.docs.map((doc) => {
+		const questions = snap.docs
+			.filter((doc) => !answeredIds.has(doc.id))
+			.map((doc) => {
 				const data = doc.data();
 				return {
 					id: doc.id,
@@ -54,7 +108,18 @@ export const getTriviaQuestions = functions.https.onCall(
 							? data.createdAt.toMillis()
 							: null,
 				};
-			}),
+			})
+			.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
+		for (let i = questions.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[questions[i], questions[j]] = [questions[j], questions[i]];
+		}
+
+		return {
+			questions: questions.slice(0, remainingToday),
+			remainingToday,
+			dailyQuestionLimit: limit,
 		};
 	},
 );
@@ -74,14 +139,17 @@ export const submitTriviaAnswer = functions.https.onCall(
 
 		const db = admin.firestore();
 		const cleanQuestionId = questionId.trim();
-		const questionRef = db.collection('trivia_questions').doc(cleanQuestionId);
+		const [limit, usedToday] = await Promise.all([
+			triviaDailyLimit(),
+			todayAnswerCount(uid),
+		]);
 		const userRef = db.collection('users').doc(uid);
 		const answerRef = db
 			.collection('trivia_answers')
 			.doc(`${uid}_${cleanQuestionId}`);
 
 		return db.runTransaction(async (tx) => {
-			const questionDoc = await tx.get(questionRef);
+			const questionDoc = await getQuestionDoc(cleanQuestionId);
 			const answerDoc = await tx.get(answerRef);
 			const userDoc = await tx.get(userRef);
 
@@ -124,6 +192,13 @@ export const submitTriviaAnswer = functions.https.onCall(
 							? existing.streakAtAnswer
 							: 0,
 				};
+			}
+
+			if (usedToday >= limit) {
+				throw new functions.https.HttpsError(
+					'resource-exhausted',
+					'Ya respondiste el maximo de preguntas de hoy',
+				);
 			}
 
 			const userData = userDoc.data() ?? {};

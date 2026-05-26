@@ -5,15 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final createGroupProvider =
     FutureProvider.family<
-      void,
+      String,
       ({String name, String? leagueId, bool isLeagueExclusive})
     >((ref, params) async {
       final functions = FirebaseFunctions.instance;
-      await functions.httpsCallable('createGroup').call({
+      final result = await functions.httpsCallable('createGroup').call({
         'name': params.name,
         'leagueId': params.leagueId,
         'isLeagueExclusive': params.isLeagueExclusive,
       });
+      final data = Map<String, dynamic>.from(result.data as Map);
+      return data['code'] as String? ?? '';
     });
 
 final joinGroupProvider = FutureProvider.family<void, String>((

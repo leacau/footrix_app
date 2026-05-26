@@ -19,12 +19,16 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   final _awayCtrl = TextEditingController();
   final _phaseCtrl = TextEditingController();
   final _dateCtrl = TextEditingController();
+  final _predictionLockCtrl = TextEditingController();
+  final _triviaLimitCtrl = TextEditingController();
   int _lockHours = 12;
+  bool _syncingFifa = false;
+  bool _savingSettings = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -34,6 +38,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     _awayCtrl.dispose();
     _phaseCtrl.dispose();
     _dateCtrl.dispose();
+    _predictionLockCtrl.dispose();
+    _triviaLimitCtrl.dispose();
     super.dispose();
   }
 
@@ -55,56 +61,199 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('🛠️ Panel Admin'),
+        actions: [
+          IconButton(
+            tooltip: 'Sincronizar FIFA',
+            icon: _syncingFifa
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+            onPressed: _syncingFifa ? null : _syncFifaFixtures,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
             Tab(text: 'Usuarios'),
             Tab(text: 'Crear Partido'),
             Tab(text: 'Finalizar'),
+            Tab(text: 'Ajustes'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildUsersTab(),
+          const _AdminUsersTab(),
           _buildCreateMatchTab(),
-          _buildFinishMatchTab(),
+          _AdminFinishTab(onFinish: _showFinishDialog),
+          _buildSettingsTab(),
         ],
       ),
     );
   }
 
-  // --- TAB 1: USUARIOS ---
-  Widget _buildUsersTab() {
-    final usersAsync = ref.watch(adminUsersProvider);
+  Future<void> _syncFifaFixtures() async {
+    setState(() => _syncingFifa = true);
+    try {
+      final result = await ref
+          .read(adminControllerProvider)
+          .syncFifaFixturesNow();
+      final matches = result['matchesSynced'] ?? 0;
+      final leagues = result['leaguesSynced'] ?? 0;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'FIFA sincronizado: $matches partidos, $leagues ligas',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error sincronizando FIFA: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _syncingFifa = false);
+      }
+    }
+  }
 
-    // ✅ CORRECCIÓN EXPLÍCITA: 'data:' debe estar ESCRITO, no implícito
-    return usersAsync.when(
-      data: (List<Map<String, dynamic>> users) {
-        return ListView.builder(
-          itemCount: users.length,
-          itemBuilder: (context, index) {
-            final user = users[index];
-            final isActive = user['isActive'] ?? true;
-            return ListTile(
-              title: Text(user['displayName'] ?? 'Sin nombre'),
-              subtitle: Text(user['email'] ?? ''),
-              trailing: Switch(
-                value: isActive,
-                onChanged: (val) {
-                  ref
-                      .read(adminControllerProvider)
-                      .toggleUserStatus(user['id'], val);
-                },
+  Widget _buildSettingsTab() {
+    final configAsync = ref.watch(appConfigProvider);
+
+    return configAsync.when(
+      data: (config) {
+        final predictionConfig = Map<String, dynamic>.from(
+          config['predictions'] as Map? ?? {},
+        );
+        final triviaConfig = Map<String, dynamic>.from(
+          config['trivia'] as Map? ?? {},
+        );
+
+        if (_predictionLockCtrl.text.isEmpty) {
+          _predictionLockCtrl.text =
+              '${predictionConfig['lockHoursBefore'] as int? ?? 12}';
+        }
+        if (_triviaLimitCtrl.text.isEmpty) {
+          _triviaLimitCtrl.text =
+              '${triviaConfig['dailyQuestionLimit'] as int? ?? 10}';
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Predicciones',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _predictionLockCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Cerrar predicciones X horas antes',
+                        helperText:
+                            'Usa 0 para aceptar hasta la hora de inicio.',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Trivia',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _triviaLimitCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Preguntas por usuario por día',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _savingSettings ? null : _saveSettings,
+              icon: _savingSettings
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save),
+              label: const Text('Guardar ajustes'),
+            ),
+          ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (Object e, StackTrace _) => Center(child: Text('Error: $e')),
+      error: (error, _) => Center(child: Text('Error: $error')),
     );
+  }
+
+  Future<void> _saveSettings() async {
+    final lockHours = int.tryParse(_predictionLockCtrl.text.trim());
+    final triviaLimit = int.tryParse(_triviaLimitCtrl.text.trim());
+    if (lockHours == null || triviaLimit == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Revisá los valores numéricos')),
+      );
+      return;
+    }
+
+    setState(() => _savingSettings = true);
+    try {
+      final admin = ref.read(adminControllerProvider);
+      await admin.updatePredictionSettings(lockHours);
+      await admin.updateTriviaSettings(triviaLimit);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Ajustes guardados')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _savingSettings = false);
+      }
+    }
   }
 
   // --- TAB 2: CREAR PARTIDO ---
@@ -189,44 +338,6 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
     );
   }
 
-  // --- TAB 3: FINALIZAR PARTIDO ---
-  Widget _buildFinishMatchTab() {
-    final matchesAsync = ref.watch(adminMatchesProvider);
-
-    // ✅ CORRECCIÓN EXPLÍCITA: 'data:' debe estar ESCRITO, no implícito
-    return matchesAsync.when(
-      data: (List<Map<String, dynamic>> matches) {
-        final pendingMatches = matches
-            .where((m) => m['status'] != 'finished')
-            .toList();
-        if (pendingMatches.isEmpty) {
-          return const Center(child: Text('No hay partidos pendientes'));
-        }
-        return ListView.builder(
-          itemCount: pendingMatches.length,
-          itemBuilder: (context, index) {
-            final match = pendingMatches[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                title: Text('${match['homeTeam']} vs ${match['awayTeam']}'),
-                subtitle: Text(
-                  '${match['phase']} - ${DateFormat('dd/MM HH:mm').format((match['kickoff'] as Timestamp).toDate())}',
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.scoreboard, color: Colors.green),
-                  onPressed: () => _showFinishDialog(match['id']),
-                ),
-              ),
-            );
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (Object e, StackTrace _) => Center(child: Text('Error: $e')),
-    );
-  }
-
   void _showFinishDialog(String matchId) {
     final homeCtrl = TextEditingController();
     final awayCtrl = TextEditingController();
@@ -270,6 +381,87 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AdminUsersTab extends ConsumerWidget {
+  const _AdminUsersTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final usersAsync = ref.watch(adminUsersProvider);
+
+    return usersAsync.when(
+      data: (users) {
+        return ListView.builder(
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            final isActive = user['isActive'] ?? true;
+            return ListTile(
+              title: Text(user['displayName'] ?? 'Sin nombre'),
+              subtitle: Text(user['email'] ?? ''),
+              trailing: Switch(
+                value: isActive,
+                onChanged: (val) {
+                  ref
+                      .read(adminControllerProvider)
+                      .toggleUserStatus(user['id'], val);
+                },
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text('Error: $error')),
+    );
+  }
+}
+
+class _AdminFinishTab extends ConsumerWidget {
+  final ValueChanged<String> onFinish;
+
+  const _AdminFinishTab({required this.onFinish});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final matchesAsync = ref.watch(adminMatchesProvider);
+
+    return matchesAsync.when(
+      data: (matches) {
+        final pendingMatches = matches
+            .where((m) => m['status'] != 'finished')
+            .toList();
+        if (pendingMatches.isEmpty) {
+          return const Center(child: Text('No hay partidos pendientes'));
+        }
+        return ListView.builder(
+          itemCount: pendingMatches.length,
+          itemBuilder: (context, index) {
+            final match = pendingMatches[index];
+            final kickoff = match['kickoff'];
+            final kickoffLabel = kickoff is Timestamp
+                ? DateFormat('dd/MM HH:mm').format(kickoff.toDate())
+                : 'Sin horario';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                title: Text('${match['homeTeam']} vs ${match['awayTeam']}'),
+                subtitle: Text('${match['phase']} - $kickoffLabel'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.scoreboard, color: Colors.green),
+                  onPressed: () => onFinish(match['id'] as String),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text('Error: $error')),
     );
   }
 }
