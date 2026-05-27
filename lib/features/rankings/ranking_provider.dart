@@ -21,7 +21,10 @@ final rankingProvider =
       if (params.scope != RankingScope.global &&
           params.filter != null &&
           params.filter!.trim().isNotEmpty) {
-        query = query.where(params.scope.name, isEqualTo: params.filter!.trim());
+        query = query.where(
+          params.scope.name,
+          isEqualTo: params.filter!.trim(),
+        );
       }
 
       if (params.groupId != null) {
@@ -32,7 +35,9 @@ final rankingProvider =
             .asyncMap((groupDoc) async {
               if (!groupDoc.exists) return <Map<String, dynamic>>[];
               final group = groupDoc.data() as Map<String, dynamic>;
-              final members = List<String>.from(group['members'] as List? ?? []);
+              final members = List<String>.from(
+                group['members'] as List? ?? [],
+              );
               if (members.isEmpty) return <Map<String, dynamic>>[];
 
               final usersSnap = await query.get();
@@ -41,7 +46,11 @@ final rankingProvider =
                   .where((u) => members.contains(u['id']))
                   .toList();
 
-              users = _applyLeagueFilter(users, params.leagueId);
+              users = _applyLeagueFilter(
+                users,
+                params.leagueId,
+                params.groupId != null,
+              );
               _sortUsers(users, params.type, params.leagueId);
               return users;
             });
@@ -52,7 +61,11 @@ final rankingProvider =
             .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
             .toList();
 
-        users = _applyLeagueFilter(users, params.leagueId);
+        users = _applyLeagueFilter(
+          users,
+          params.leagueId,
+          params.groupId != null,
+        );
         _sortUsers(users, params.type, params.leagueId);
         return users;
       });
@@ -60,47 +73,56 @@ final rankingProvider =
 
 List<Map<String, dynamic>> _applyLeagueFilter(
   List<Map<String, dynamic>> users,
-  String? leagueId,
+  dynamic leagues, // Puede recibir String (antiguo) o List<dynamic> (nuevo)
+  bool isGroupContext,
 ) {
-  if (leagueId == null) return users;
+  if (leagues == null || isGroupContext) return users;
+
+  // Lógica global estricta (fuera de grupos)
   return users.where((u) {
     final leagueStats = u['leagueStats'] as Map<String, dynamic>?;
-    return leagueStats?[leagueId] != null;
+    if (leagues is List) {
+      return leagues.any((lid) => leagueStats?[lid] != null);
+    }
+    return leagueStats?[leagues] != null;
   }).toList();
 }
 
 void _sortUsers(
   List<Map<String, dynamic>> users,
   RankingType type,
-  String? leagueId,
+  dynamic leagues,
 ) {
   users.sort((a, b) {
-    final pointsA = _getPoints(a, type, leagueId);
-    final pointsB = _getPoints(b, type, leagueId);
+    final pointsA = _getPoints(a, type, leagues);
+    final pointsB = _getPoints(b, type, leagues);
     return pointsB.compareTo(pointsA);
   });
 }
 
-int _getPoints(Map<String, dynamic> user, RankingType type, String? leagueId) {
-  if (leagueId != null) {
-    final leagueStats = user['leagueStats'] as Map<String, dynamic>?;
-    final leagueData = leagueStats?[leagueId];
+int _getPoints(Map<String, dynamic> user, RankingType type, dynamic leagues) {
+  if (leagues != null) {
+    final leagueStats = user['leagueStats'] as Map<String, dynamic>? ?? {};
+    int total = 0;
 
-    if (leagueData != null) {
-      switch (type) {
-        case RankingType.predictions:
-          return leagueData['points'] as int? ?? 0;
-        case RankingType.trivia:
-          return leagueData['triviaPoints'] as int? ?? 0;
-        case RankingType.combined:
-          final pred = leagueData['points'] as int? ?? 0;
-          final trivia = leagueData['triviaPoints'] as int? ?? 0;
-          return pred + trivia;
+    // Convertimos a lista para soportar múltiples ligas
+    final leagueIds = leagues is List ? leagues : [leagues];
+
+    for (var lid in leagueIds) {
+      final leagueData = leagueStats[lid];
+      if (leagueData != null) {
+        if (type == RankingType.predictions || type == RankingType.combined) {
+          total += (leagueData['points'] as int? ?? 0);
+        }
+        if (type == RankingType.trivia || type == RankingType.combined) {
+          total += (leagueData['triviaPoints'] as int? ?? 0);
+        }
       }
     }
-    return 0;
+    return total;
   }
 
+  // Lógica global sin ligas
   switch (type) {
     case RankingType.predictions:
       return user['totalPoints'] as int? ?? 0;

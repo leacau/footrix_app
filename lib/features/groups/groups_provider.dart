@@ -7,12 +7,12 @@ import '../matches/models/prediction_model.dart';
 final createGroupProvider =
     FutureProvider.family<
       String,
-      ({String name, String? leagueId, bool isLeagueExclusive})
+      ({String name, List<String> leagueIds, bool isLeagueExclusive})
     >((ref, params) async {
       final functions = FirebaseFunctions.instance;
       final result = await functions.httpsCallable('createGroup').call({
         'name': params.name,
-        'leagueId': params.leagueId,
+        'leagueIds': params.leagueIds, // Cambiado de leagueId a leagueIds
         'isLeagueExclusive': params.isLeagueExclusive,
       });
       final data = Map<String, dynamic>.from(result.data as Map);

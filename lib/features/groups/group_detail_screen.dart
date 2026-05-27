@@ -20,7 +20,7 @@ class GroupDetailScreen extends ConsumerWidget {
         type: RankingType.combined,
         groupId: group['id'],
         filter: null,
-        leagueId: group['leagueId'],
+        leagueId: group['leagueIds'], // Le pasamos el array completo
       )),
     );
 

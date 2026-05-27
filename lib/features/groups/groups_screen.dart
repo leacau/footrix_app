@@ -19,7 +19,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final _nameCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
   bool _creating = false;
-  String? _selectedLeagueForGroup;
+  // Cambiamos a la lista para soportar múltiples ligas
+  final List<String> _selectedLeaguesForGroup = [];
   bool _isLeagueExclusive = true;
 
   @override
@@ -65,14 +66,36 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     ),
                     const SizedBox(height: 4),
                     LeagueSelector(
-                      selectedLeagueId: _selectedLeagueForGroup,
+                      // Mostramos la última liga seleccionada en el selector
+                      selectedLeagueId: _selectedLeaguesForGroup.isNotEmpty
+                          ? _selectedLeaguesForGroup.last
+                          : null,
                       onLeagueSelected: (value) {
-                        if (context.mounted) {
-                          setState(() => _selectedLeagueForGroup = value);
+                        if (context.mounted && value != null) {
+                          setState(() {
+                            // Si la liga no está en la lista, la agregamos
+                            if (!_selectedLeaguesForGroup.contains(value)) {
+                              _selectedLeaguesForGroup.add(value);
+                            }
+                          });
                         }
                       },
                       showAllOption: false,
                     ),
+
+                    // Pequeño indicador visual de cuántas ligas van seleccionadas
+                    if (_selectedLeaguesForGroup.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${_selectedLeaguesForGroup.length} ligas seleccionadas',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+
                     const SizedBox(height: 8),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -87,7 +110,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: _creating || _selectedLeagueForGroup == null
+                      // Cambiamos la validación a la lista
+                      onPressed: _creating || _selectedLeaguesForGroup.isEmpty
                           ? null
                           : () async {
                               if (_nameCtrl.text.trim().isEmpty) return;
@@ -97,12 +121,15 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                                 final code = await ref.read(
                                   createGroupProvider((
                                     name: _nameCtrl.text.trim(),
-                                    leagueId: _selectedLeagueForGroup,
+                                    leagueIds:
+                                        _selectedLeaguesForGroup, // Pasamos el array
                                     isLeagueExclusive: _isLeagueExclusive,
                                   )).future,
                                 );
                                 final groupName = _nameCtrl.text.trim();
                                 _nameCtrl.clear();
+                                // Limpiamos la lista tras crear el grupo
+                                _selectedLeaguesForGroup.clear();
 
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -133,7 +160,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                             )
                           : Text(l10n.create),
                     ),
-                    if (_selectedLeagueForGroup == null)
+                    // Validamos contra la lista vacía
+                    if (_selectedLeaguesForGroup.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
