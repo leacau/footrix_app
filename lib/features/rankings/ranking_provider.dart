@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum RankingScope { global, country, province, city }
 
 enum RankingType { predictions, trivia, combined }
+
+enum RankingMode { points, average }
 
 final rankingProvider =
     StreamProvider.family<
@@ -60,29 +63,29 @@ final rankingProvider =
                 }
               }
 
+              await _attachRankingMetadata(users, params.type, params.leagueId);
               users = _applyLeagueFilter(
                 users,
                 params.leagueId,
                 params.groupId != null,
               );
-              _sortUsers(users, params.type, params.leagueId);
-              _attachRankingPoints(users, params.type, params.leagueId);
+              _sortUsers(users, RankingMode.points);
               return users;
             });
       }
 
-      return query.snapshots().map((snap) {
+      return query.snapshots().asyncMap((snap) async {
         var users = snap.docs
             .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
             .toList();
 
+        await _attachRankingMetadata(users, params.type, params.leagueId);
         users = _applyLeagueFilter(
           users,
           params.leagueId,
           params.groupId != null,
         );
-        _sortUsers(users, params.type, params.leagueId);
-        _attachRankingPoints(users, params.type, params.leagueId);
+        _sortUsers(users, RankingMode.points);
         return users;
       });
     });
@@ -104,26 +107,73 @@ List<Map<String, dynamic>> _applyLeagueFilter(
   }).toList();
 }
 
-void _sortUsers(
-  List<Map<String, dynamic>> users,
-  RankingType type,
-  dynamic leagues,
-) {
+void _sortUsers(List<Map<String, dynamic>> users, RankingMode mode) {
   users.sort((a, b) {
-    final pointsA = _getPoints(a, type, leagues);
-    final pointsB = _getPoints(b, type, leagues);
-    return pointsB.compareTo(pointsA);
+    final pointsA = a['rankingPoints'] as int? ?? 0;
+    final pointsB = b['rankingPoints'] as int? ?? 0;
+    final predictionsA = a['predictionCount'] as int? ?? 0;
+    final predictionsB = b['predictionCount'] as int? ?? 0;
+
+    if (mode == RankingMode.average) {
+      final averageA = a['rankingAverage'] as double? ?? 0;
+      final averageB = b['rankingAverage'] as double? ?? 0;
+      final averageCompare = averageB.compareTo(averageA);
+      if (averageCompare != 0) return averageCompare;
+    }
+
+    final pointsCompare = pointsB.compareTo(pointsA);
+    if (pointsCompare != 0) return pointsCompare;
+    return predictionsA.compareTo(predictionsB);
   });
 }
 
-void _attachRankingPoints(
+List<Map<String, dynamic>> sortedRankingUsers(
+  List<Map<String, dynamic>> users,
+  RankingMode mode,
+) {
+  final sorted = users.map((user) => Map<String, dynamic>.from(user)).toList();
+  _sortUsers(sorted, mode);
+  return sorted;
+}
+
+Future<void> _attachRankingMetadata(
   List<Map<String, dynamic>> users,
   RankingType type,
   dynamic leagues,
-) {
+) async {
+  final predictionCounts = await _predictionCountsByUser(users, leagues);
   for (final user in users) {
-    user['rankingPoints'] = _getPoints(user, type, leagues);
+    final points = _getPoints(user, type, leagues);
+    final count = predictionCounts[user['id']] ?? 0;
+    user['rankingPoints'] = points;
+    user['predictionCount'] = count;
+    user['rankingAverage'] = count == 0 ? 0.0 : points / count;
   }
+}
+
+Future<Map<String, int>> _predictionCountsByUser(
+  List<Map<String, dynamic>> users,
+  dynamic leagues,
+) async {
+  final userIds = users
+      .map((user) => user['id'])
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
+      .toList();
+  if (userIds.isEmpty) return {};
+
+  final leagueIds = leagues == null
+      ? <String>[]
+      : (leagues is List ? leagues : [leagues])
+            .whereType<String>()
+            .where((id) => id.isNotEmpty)
+            .toList();
+  final result = await FirebaseFunctions.instance
+      .httpsCallable('getRankingPredictionCounts')
+      .call({'userIds': userIds, 'leagueIds': leagueIds});
+  final data = Map<String, dynamic>.from(result.data as Map);
+  final rawCounts = Map<String, dynamic>.from(data['counts'] as Map? ?? {});
+  return rawCounts.map((key, value) => MapEntry(key, value as int? ?? 0));
 }
 
 int _getPoints(Map<String, dynamic> user, RankingType type, dynamic leagues) {

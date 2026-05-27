@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,8 @@ class GroupDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groupId = group['id'] as String;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final isCreator = group['createdBy'] == currentUserId;
     final leagueIds = group['leagueIds'] ?? group['leagueId'];
     final rankingAsync = ref.watch(
       rankingProvider((
@@ -29,6 +32,28 @@ class GroupDetailScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(group['name'] as String? ?? 'Grupo'),
+          actions: [
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'leave') {
+                  _confirmLeaveGroup(context, ref, groupId);
+                } else if (value == 'delete') {
+                  _confirmDeleteGroup(context, ref, groupId);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'leave',
+                  child: Text('Salir del grupo'),
+                ),
+                if (isCreator)
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Eliminar grupo'),
+                  ),
+              ],
+            ),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Ranking'),
@@ -45,27 +70,48 @@ class GroupDetailScreen extends ConsumerWidget {
                     child: Text('Todavía no hay integrantes'),
                   );
                 }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: users.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, i) {
-                    final user = users[i];
-                    final name =
-                        (user['displayName'] as String?)?.trim().isNotEmpty ==
-                            true
-                        ? user['displayName'] as String
-                        : 'Anónimo';
-                    final points = user['rankingPoints'] as int? ?? 0;
-                    return ListTile(
-                      leading: CircleAvatar(child: Text('${i + 1}')),
-                      title: Text(name),
-                      subtitle: Text(
-                        i == 0 ? 'Puntero del grupo' : 'Integrante del grupo',
+                return DefaultTabController(
+                  length: 2,
+                  child: Column(
+                    children: [
+                      const Material(
+                        child: TabBar(
+                          tabs: [
+                            Tab(text: 'Puntaje'),
+                            Tab(text: 'Promedio'),
+                          ],
+                        ),
                       ),
-                      trailing: Text('$points pts'),
-                    );
-                  },
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _GroupRankingList(
+                              users: sortedRankingUsers(
+                                users,
+                                RankingMode.points,
+                              ),
+                              mode: RankingMode.points,
+                              groupId: groupId,
+                              canManageMembers: isCreator,
+                              currentUserId: currentUserId,
+                              ref: ref,
+                            ),
+                            _GroupRankingList(
+                              users: sortedRankingUsers(
+                                users,
+                                RankingMode.average,
+                              ),
+                              mode: RankingMode.average,
+                              groupId: groupId,
+                              canManageMembers: isCreator,
+                              currentUserId: currentUserId,
+                              ref: ref,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -104,6 +150,178 @@ class GroupDetailScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmLeaveGroup(
+    BuildContext context,
+    WidgetRef ref,
+    String groupId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Salir del grupo'),
+        content: const Text(
+          'Si sos el creador, el grupo pasará a estar a cargo de otro integrante.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Salir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(groupsControllerProvider).leaveGroup(groupId);
+      ref.invalidate(userGroupsProvider);
+      if (context.mounted) Navigator.pop(context);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteGroup(
+    BuildContext context,
+    WidgetRef ref,
+    String groupId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar grupo'),
+        content: const Text('Esta acción elimina el grupo para todos.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(groupsControllerProvider).deleteGroup(groupId);
+      ref.invalidate(userGroupsProvider);
+      if (context.mounted) Navigator.pop(context);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+}
+
+class _GroupRankingList extends StatelessWidget {
+  final List<Map<String, dynamic>> users;
+  final RankingMode mode;
+  final String groupId;
+  final bool canManageMembers;
+  final String? currentUserId;
+  final WidgetRef ref;
+
+  const _GroupRankingList({
+    required this.users,
+    required this.mode,
+    required this.groupId,
+    required this.canManageMembers,
+    required this.currentUserId,
+    required this.ref,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: users.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final user = users[i];
+        final name = (user['displayName'] as String?)?.trim().isNotEmpty == true
+            ? user['displayName'] as String
+            : 'Anónimo';
+        final points = user['rankingPoints'] as int? ?? 0;
+        final predictions = user['predictionCount'] as int? ?? 0;
+        final average = user['rankingAverage'] as double? ?? 0;
+        return ListTile(
+          leading: CircleAvatar(child: Text('${i + 1}')),
+          title: Text(name),
+          subtitle: Text('$predictions predicciones'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                mode == RankingMode.points
+                    ? '$points pts'
+                    : average.toStringAsFixed(2),
+              ),
+              if (canManageMembers && user['id'] != currentUserId)
+                IconButton(
+                  tooltip: 'Quitar participante',
+                  icon: const Icon(Icons.person_remove_outlined),
+                  onPressed: () =>
+                      _confirmRemoveMember(context, user['id'] as String, name),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmRemoveMember(
+    BuildContext context,
+    String memberId,
+    String memberName,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quitar participante'),
+        content: Text('¿Querés quitar a $memberName del grupo?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(groupsControllerProvider)
+          .removeMember(groupId: groupId, memberId: memberId);
+      ref.invalidate(userGroupsProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 }
 

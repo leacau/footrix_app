@@ -14,8 +14,16 @@ export { notifyOnPointsAssigned } from './notifyOnPointsAssigned';
 export { notifyOnGroupInvite } from './notifyOnGroupInvite';
 export { awardTriviaPoints } from './awardTriviaPoints';
 export { getTriviaQuestions, submitTriviaAnswer } from './triviaActions';
-export { createGroup, getGroupPredictions, joinGroup } from './groupActions';
+export {
+	createGroup,
+	deleteGroup,
+	getGroupPredictions,
+	joinGroup,
+	leaveGroup,
+	removeGroupMember,
+} from './groupActions';
 export { remindAnonymousUsersToCompleteProfile } from './anonymousProfileReminder';
+export { getRankingPredictionCounts } from './rankingActions';
 export {
 	adminCreateMatch,
 	adminFinishMatch,

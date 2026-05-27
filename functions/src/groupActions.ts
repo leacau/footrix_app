@@ -55,6 +55,10 @@ export const createGroup = functions.https.onCall(async (data, context) => {
 	const name = typeof data.name === 'string' ? data.name.trim() : '';
 	const leagueIds = readLeagueIds(data);
 	const isLeagueExclusive = data.isLeagueExclusive === true;
+	const clientRequestId =
+		typeof data.clientRequestId === 'string'
+			? data.clientRequestId.trim().slice(0, 80)
+			: '';
 
 	if (name.length < 3 || name.length > 40) {
 		throw new functions.https.HttpsError(
@@ -71,6 +75,41 @@ export const createGroup = functions.https.onCall(async (data, context) => {
 	}
 
 	const db = admin.firestore();
+	if (clientRequestId) {
+		const existingGroup = await db
+			.collection('groups')
+			.where('clientRequestId', '==', clientRequestId)
+			.limit(1)
+			.get();
+		if (!existingGroup.empty && existingGroup.docs[0].data().createdBy === uid) {
+			return {
+				success: true,
+				code: existingGroup.docs[0].data().code,
+				deduped: true,
+			};
+		}
+	}
+	const sameNameGroups = await db
+		.collection('groups')
+		.where('createdBy', '==', uid)
+		.limit(10)
+		.get();
+	const sortedLeagueIds = [...leagueIds].sort().join('|');
+	for (const existingGroup of sameNameGroups.docs) {
+		const existing = existingGroup.data();
+		if (existing.name !== name) continue;
+		const existingLeagueIds = readLeagueIds({
+			leagueId: existing.leagueId,
+			leagueIds: existing.leagueIds,
+		});
+		if (
+			existingLeagueIds.sort().join('|') === sortedLeagueIds &&
+			existing.isLeagueExclusive === isLeagueExclusive
+		) {
+			return { success: true, code: existing.code, deduped: true };
+		}
+	}
+
 	const leagueDocs = await db.getAll(
 		...leagueIds.map((leagueId) => db.collection('leagues').doc(leagueId)),
 	);
@@ -116,6 +155,7 @@ export const createGroup = functions.https.onCall(async (data, context) => {
 			leagueName: leagueNames[0] ?? null,
 			leagueNames,
 			isLeagueExclusive,
+			...(clientRequestId ? { clientRequestId } : {}),
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 			updatedAt: admin.firestore.FieldValue.serverTimestamp(),
 		});
@@ -175,6 +215,111 @@ export const joinGroup = functions.https.onCall(async (data, context) => {
 				{ merge: true },
 			);
 		}
+	});
+
+	return { success: true };
+});
+
+export const deleteGroup = functions.https.onCall(async (data, context) => {
+	const uid = requireAuth(context);
+	const groupId = normalizeCode(data.groupId ?? data.code);
+	const groupRef = admin.firestore().collection('groups').doc(groupId);
+	const groupDoc = await groupRef.get();
+
+	if (!groupDoc.exists) {
+		throw new functions.https.HttpsError('not-found', 'Grupo no encontrado');
+	}
+
+	if (groupDoc.data()?.createdBy !== uid) {
+		throw new functions.https.HttpsError(
+			'permission-denied',
+			'Solo el creador puede eliminar el grupo',
+		);
+	}
+
+	await groupRef.delete();
+	return { success: true };
+});
+
+export const removeGroupMember = functions.https.onCall(async (data, context) => {
+	const uid = requireAuth(context);
+	const groupId = normalizeCode(data.groupId ?? data.code);
+	const memberId =
+		typeof data.memberId === 'string' ? data.memberId.trim() : '';
+	if (!memberId) {
+		throw new functions.https.HttpsError(
+			'invalid-argument',
+			'Participante invalido',
+		);
+	}
+
+	const groupRef = admin.firestore().collection('groups').doc(groupId);
+	await admin.firestore().runTransaction(async (tx) => {
+		const groupDoc = await tx.get(groupRef);
+		if (!groupDoc.exists) {
+			throw new functions.https.HttpsError('not-found', 'Grupo no encontrado');
+		}
+
+		const group = groupDoc.data()!;
+		if (group.createdBy !== uid) {
+			throw new functions.https.HttpsError(
+				'permission-denied',
+				'Solo el creador puede quitar participantes',
+			);
+		}
+
+		if (memberId === uid) {
+			throw new functions.https.HttpsError(
+				'failed-precondition',
+				'Usa salir del grupo para dejarlo como creador',
+			);
+		}
+
+		tx.update(groupRef, {
+			members: admin.firestore.FieldValue.arrayRemove(memberId),
+			updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+		});
+	});
+
+	return { success: true };
+});
+
+export const leaveGroup = functions.https.onCall(async (data, context) => {
+	const uid = requireAuth(context);
+	const groupId = normalizeCode(data.groupId ?? data.code);
+	const groupRef = admin.firestore().collection('groups').doc(groupId);
+
+	await admin.firestore().runTransaction(async (tx) => {
+		const groupDoc = await tx.get(groupRef);
+		if (!groupDoc.exists) {
+			throw new functions.https.HttpsError('not-found', 'Grupo no encontrado');
+		}
+
+		const group = groupDoc.data()!;
+		const members = Array.isArray(group.members)
+			? (group.members as string[])
+			: [];
+		if (!members.includes(uid)) {
+			throw new functions.https.HttpsError(
+				'failed-precondition',
+				'No sos miembro de este grupo',
+			);
+		}
+
+		const remainingMembers = members.filter((memberId) => memberId !== uid);
+		if (remainingMembers.length === 0) {
+			tx.delete(groupRef);
+			return;
+		}
+
+		const updateData: admin.firestore.UpdateData<admin.firestore.DocumentData> = {
+			members: admin.firestore.FieldValue.arrayRemove(uid),
+			updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+		};
+		if (group.createdBy === uid) {
+			updateData.createdBy = remainingMembers[0];
+		}
+		tx.update(groupRef, updateData);
 	});
 
 	return { success: true };

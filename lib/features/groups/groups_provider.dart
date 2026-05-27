@@ -39,6 +39,54 @@ final userGroupsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
+final groupsControllerProvider = Provider<GroupsController>((ref) {
+  return GroupsController(FirebaseFunctions.instance);
+});
+
+class GroupsController {
+  final FirebaseFunctions _functions;
+
+  GroupsController(this._functions);
+
+  Future<String> createGroup({
+    required String name,
+    required List<String> leagueIds,
+    required bool isLeagueExclusive,
+    required String clientRequestId,
+  }) async {
+    final result = await _functions.httpsCallable('createGroup').call({
+      'name': name,
+      'leagueIds': leagueIds,
+      'isLeagueExclusive': isLeagueExclusive,
+      'clientRequestId': clientRequestId,
+    });
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return data['code'] as String? ?? '';
+  }
+
+  Future<void> joinGroup(String code) async {
+    await _functions.httpsCallable('joinGroup').call({'code': code});
+  }
+
+  Future<void> deleteGroup(String groupId) async {
+    await _functions.httpsCallable('deleteGroup').call({'groupId': groupId});
+  }
+
+  Future<void> leaveGroup(String groupId) async {
+    await _functions.httpsCallable('leaveGroup').call({'groupId': groupId});
+  }
+
+  Future<void> removeMember({
+    required String groupId,
+    required String memberId,
+  }) async {
+    await _functions.httpsCallable('removeGroupMember').call({
+      'groupId': groupId,
+      'memberId': memberId,
+    });
+  }
+}
+
 class GroupPredictionEntry {
   final String displayName;
   final int homeGuess;
