@@ -69,7 +69,7 @@ export const adminCreateMatch = functions.https.onCall(async (data, context) => 
 		throw new functions.https.HttpsError('invalid-argument', 'Fecha invalida');
 	}
 
-	if (lockHoursBefore < 1 || lockHoursBefore > 72) {
+	if (lockHoursBefore < 0 || lockHoursBefore > 72) {
 		throw new functions.https.HttpsError(
 			'invalid-argument',
 			'Bloqueo invalido',

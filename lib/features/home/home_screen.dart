@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +16,7 @@ class HomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
     final isAdmin = ref.watch(isAdminProvider).valueOrNull == true;
+    _redirectAnonymousProfile(context, user);
 
     return Scaffold(
       appBar: AppBar(
@@ -268,6 +270,28 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _redirectAnonymousProfile(BuildContext context, User? user) {
+    if (user == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!context.mounted) return;
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final displayName =
+          (doc.data()?['displayName'] as String?) ?? user.displayName ?? '';
+      final normalized = displayName.trim().toLowerCase();
+      final isAnonymous =
+          normalized.isEmpty ||
+          normalized == 'anónimo' ||
+          normalized == 'anonimo' ||
+          normalized == 'anonymous';
+      if (isAnonymous && context.mounted) {
+        context.go('/profile');
+      }
+    });
   }
 }
 

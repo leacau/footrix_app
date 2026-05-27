@@ -38,11 +38,13 @@ class FixtureMatchesQuery {
   final String? selectedLeagueId;
   final DateTime start;
   final DateTime end;
+  final bool descending;
 
   const FixtureMatchesQuery({
     required this.selectedLeagueId,
     required this.start,
     required this.end,
+    this.descending = false,
   });
 
   @override
@@ -50,11 +52,12 @@ class FixtureMatchesQuery {
     return other is FixtureMatchesQuery &&
         other.selectedLeagueId == selectedLeagueId &&
         other.start == start &&
-        other.end == end;
+        other.end == end &&
+        other.descending == descending;
   }
 
   @override
-  int get hashCode => Object.hash(selectedLeagueId, start, end);
+  int get hashCode => Object.hash(selectedLeagueId, start, end, descending);
 }
 
 final fixtureMatchesProvider =
@@ -76,7 +79,7 @@ final fixtureMatchesProvider =
             isGreaterThanOrEqualTo: Timestamp.fromDate(params.start),
           )
           .where('kickoff', isLessThan: Timestamp.fromDate(params.end))
-          .orderBy('kickoff', descending: false);
+          .orderBy('kickoff', descending: params.descending);
 
       if (requestedLeagueIds.length == 1) {
         query = query.where('leagueId', isEqualTo: requestedLeagueIds.first);
@@ -102,7 +105,9 @@ final fixtureMatchesProvider =
         matches.sort((a, b) {
           final aKickoff = a.kickoff ?? DateTime.fromMillisecondsSinceEpoch(0);
           final bKickoff = b.kickoff ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return aKickoff.compareTo(bKickoff);
+          return params.descending
+              ? bKickoff.compareTo(aKickoff)
+              : aKickoff.compareTo(bKickoff);
         });
         return matches;
       });

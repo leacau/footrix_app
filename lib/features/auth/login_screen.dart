@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
@@ -45,7 +47,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         await auth.signInWithEmail(_emailCtrl.text, _passCtrl.text);
       }
 
-      if (mounted) context.go('/fixture');
+      if (mounted) {
+        final needsProfileName = await _needsProfileName();
+        if (mounted) context.go(needsProfileName ? '/profile' : '/fixture');
+      }
     } catch (e) {
       if (mounted) _showError(e);
     } finally {
@@ -81,6 +86,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<bool> _needsProfileName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final displayName =
+        (doc.data()?['displayName'] as String?) ?? user.displayName ?? '';
+    return displayName.trim().isEmpty ||
+        displayName.trim().toLowerCase() == 'anónimo' ||
+        displayName.trim().toLowerCase() == 'anonimo' ||
+        displayName.trim().toLowerCase() == 'anonymous';
   }
 
   @override

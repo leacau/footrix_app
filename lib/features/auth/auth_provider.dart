@@ -25,10 +25,35 @@ class AuthController {
 
   // Email/Password - Login
   Future<UserCredential> signInWithEmail(String email, String password) async {
-    return await _auth.signInWithEmailAndPassword(
+    final cred = await _auth.signInWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
+    final user = cred.user;
+    if (user != null) {
+      final userRef = _firestore.collection('users').doc(user.uid);
+      final userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        await userRef.set({
+          'uid': user.uid,
+          'email': user.email ?? email.trim(),
+          'displayName': user.displayName ?? '',
+          'photoURL': user.photoURL,
+          'totalPoints': 0,
+          'triviaPoints': 0,
+          'triviaStreak': 0,
+          'triviaBestStreak': 0,
+          'triviaAnswered': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'country': null,
+          'province': null,
+          'city': null,
+          'privateGroups': [],
+        });
+      }
+    }
+    return cred;
   }
 
   // ✅ Email/Password - Registro (con UID consistente)

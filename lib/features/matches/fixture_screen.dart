@@ -142,6 +142,7 @@ class _FixtureBody extends StatelessWidget {
         start: today.subtract(const Duration(days: 30)),
         end: today,
         emptyLabel: l10n.noPastMatches,
+        descending: true,
       ),
       _FixtureTabData(
         label: l10n.today,
@@ -197,6 +198,7 @@ class _FixtureTabView extends ConsumerWidget {
           selectedLeagueId: selectedLeagueId,
           start: tab.start,
           end: tab.end,
+          descending: tab.descending,
         ),
       ),
     );
@@ -416,11 +418,13 @@ class _FixtureTabData {
   final DateTime start;
   final DateTime end;
   final String emptyLabel;
+  final bool descending;
 
   const _FixtureTabData({
     required this.label,
     required this.start,
     required this.end,
     required this.emptyLabel,
+    this.descending = false,
   });
 }

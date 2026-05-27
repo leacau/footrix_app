@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -52,10 +53,10 @@ class _MatchCardState extends State<MatchCard> {
     super.dispose();
   }
 
-  bool _canEdit() {
+  bool _canEdit({int? lockHoursOverride}) {
     final kickoff = widget.match.kickoff;
     if (kickoff == null) return true;
-    final lockHours = widget.match.lockHoursBefore ?? 12;
+    final lockHours = lockHoursOverride ?? widget.match.lockHoursBefore ?? 0;
     return DateTime.now().isBefore(
       kickoff.subtract(Duration(hours: lockHours)),
     );
@@ -114,8 +115,26 @@ class _MatchCardState extends State<MatchCard> {
 
   @override
   Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('predictions')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final settingsLockHours = snapshot.data?.data()?['lockHoursBefore'];
+        return _buildCard(
+          context,
+          settingsLockHours is int ? settingsLockHours : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(BuildContext context, int? lockHoursOverride) {
     final l10n = AppLocalizations.of(context)!;
-    final isLocked = widget.match.isLocked || !_canEdit();
+    final isLocked =
+        widget.match.isLocked ||
+        !_canEdit(lockHoursOverride: lockHoursOverride);
     final isFinished = widget.match.status == MatchStatus.finished;
     final hasPrediction = widget.existingPrediction != null;
 

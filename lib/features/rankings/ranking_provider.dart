@@ -45,6 +45,20 @@ final rankingProvider =
                   .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
                   .where((u) => members.contains(u['id']))
                   .toList();
+              final foundUserIds = users
+                  .map((user) => user['id'])
+                  .whereType<String>()
+                  .toSet();
+              for (final memberId in members) {
+                if (!foundUserIds.contains(memberId)) {
+                  users.add({
+                    'id': memberId,
+                    'displayName': 'Anónimo',
+                    'totalPoints': 0,
+                    'triviaPoints': 0,
+                  });
+                }
+              }
 
               users = _applyLeagueFilter(
                 users,
@@ -52,6 +66,7 @@ final rankingProvider =
                 params.groupId != null,
               );
               _sortUsers(users, params.type, params.leagueId);
+              _attachRankingPoints(users, params.type, params.leagueId);
               return users;
             });
       }
@@ -67,6 +82,7 @@ final rankingProvider =
           params.groupId != null,
         );
         _sortUsers(users, params.type, params.leagueId);
+        _attachRankingPoints(users, params.type, params.leagueId);
         return users;
       });
     });
@@ -98,6 +114,16 @@ void _sortUsers(
     final pointsB = _getPoints(b, type, leagues);
     return pointsB.compareTo(pointsA);
   });
+}
+
+void _attachRankingPoints(
+  List<Map<String, dynamic>> users,
+  RankingType type,
+  dynamic leagues,
+) {
+  for (final user in users) {
+    user['rankingPoints'] = _getPoints(user, type, leagues);
+  }
 }
 
 int _getPoints(Map<String, dynamic> user, RankingType type, dynamic leagues) {

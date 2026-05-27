@@ -16,6 +16,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _displayNameCtrl = TextEditingController();
   final _countryCtrl = TextEditingController();
   final _provinceCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
@@ -38,6 +39,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   void dispose() {
+    _displayNameCtrl.dispose();
     _countryCtrl.dispose();
     _provinceCtrl.dispose();
     _cityCtrl.dispose();
@@ -53,6 +55,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           .get();
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
+        _displayNameCtrl.text =
+            data['displayName'] ??
+            FirebaseAuth.instance.currentUser?.displayName ??
+            '';
         _countryCtrl.text = data['country'] ?? '';
         _provinceCtrl.text = data['province'] ?? '';
         _cityCtrl.text = data['city'] ?? '';
@@ -65,6 +71,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             (data['selectedLeagueIds'] as List<dynamic>? ?? const [])
                 .whereType<String>()
                 .toSet();
+        if (_displayNameCtrl.text.trim().isEmpty) {
+          _editing = true;
+        }
+        if (mounted) setState(() {});
+      } else {
+        _displayNameCtrl.text =
+            FirebaseAuth.instance.currentUser?.displayName ?? '';
+        _editing = true;
         if (mounted) setState(() {});
       }
     }
@@ -76,7 +90,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _loading = true);
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
+      final displayName = _displayNameCtrl.text.trim();
+      if (displayName.isNotEmpty) {
+        await FirebaseAuth.instance.currentUser?.updateDisplayName(displayName);
+      }
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'displayName': displayName,
         'country': _countryCtrl.text.trim(),
         'province': _provinceCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
@@ -166,7 +185,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        user?.displayName ?? l10n.user,
+                        _displayNameCtrl.text.trim().isNotEmpty
+                            ? _displayNameCtrl.text.trim()
+                            : user?.displayName ?? l10n.user,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text(
@@ -290,17 +311,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           child: Column(
                             children: [
                               TextFormField(
+                                controller: _displayNameCtrl,
+                                decoration: InputDecoration(
+                                  labelText: l10n.name,
+                                  prefixIcon: const Icon(Icons.person),
+                                ),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return l10n.errorRequired;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
                                 controller: _countryCtrl,
                                 decoration: InputDecoration(
                                   labelText: l10n.country,
                                   prefixIcon: const Icon(Icons.flag),
                                 ),
-                                validator: (v) {
-                                  if (v != null && v.trim().isEmpty) {
-                                    return l10n.errorRequired;
-                                  }
-                                  return null;
-                                },
                               ),
                               const SizedBox(height: 12),
                               TextFormField(

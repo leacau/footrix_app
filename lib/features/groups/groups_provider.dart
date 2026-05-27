@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../matches/models/prediction_model.dart';
 
 final createGroupProvider =
     FutureProvider.family<
@@ -12,7 +11,7 @@ final createGroupProvider =
       final functions = FirebaseFunctions.instance;
       final result = await functions.httpsCallable('createGroup').call({
         'name': params.name,
-        'leagueIds': params.leagueIds, // Cambiado de leagueId a leagueIds
+        'leagueIds': params.leagueIds,
         'isLeagueExclusive': params.isLeagueExclusive,
       });
       final data = Map<String, dynamic>.from(result.data as Map);
@@ -40,33 +39,81 @@ final userGroupsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
       .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 });
 
-// Proveedor para obtener las predicciones de los miembros del grupo
-final groupPredictionsProvider = StreamProvider.family<List<Prediction>, String>((
-  ref,
-  groupId,
-) {
-  // 1. Primero obtenemos los IDs de los miembros del grupo
-  return FirebaseFirestore.instance
-      .collection('groups')
-      .doc(groupId)
-      .snapshots()
-      .asyncExpand((groupDoc) {
-        if (!groupDoc.exists) return Stream.value([]);
+class GroupPredictionEntry {
+  final String displayName;
+  final int homeGuess;
+  final int awayGuess;
 
-        final members = List<String>.from(groupDoc.data()?['members'] ?? []);
-        if (members.isEmpty) return Stream.value([]);
+  const GroupPredictionEntry({
+    required this.displayName,
+    required this.homeGuess,
+    required this.awayGuess,
+  });
 
-        // 2. Buscamos predicciones cuyos userId estén en la lista de miembros
-        // Nota: Firestore tiene un límite de 10 en 'whereIn', si el grupo es mayor
-        // se recomienda filtrar por matchId o usar otra estrategia.
-        return FirebaseFirestore.instance
-            .collection('predictions')
-            .where('userId', whereIn: members.take(10).toList())
-            .snapshots()
-            .map(
-              (snap) => snap.docs
-                  .map((doc) => Prediction.fromFirestore(doc))
-                  .toList(),
-            );
-      });
-});
+  factory GroupPredictionEntry.fromMap(Map<String, dynamic> data) {
+    return GroupPredictionEntry(
+      displayName: data['displayName'] as String? ?? 'Anónimo',
+      homeGuess: data['homeGuess'] as int? ?? 0,
+      awayGuess: data['awayGuess'] as int? ?? 0,
+    );
+  }
+}
+
+class GroupPredictionMatch {
+  final String homeTeam;
+  final String awayTeam;
+  final DateTime? kickoff;
+  final bool userHasPredicted;
+  final int predictionCount;
+  final List<GroupPredictionEntry> predictions;
+
+  const GroupPredictionMatch({
+    required this.homeTeam,
+    required this.awayTeam,
+    required this.kickoff,
+    required this.userHasPredicted,
+    required this.predictionCount,
+    required this.predictions,
+  });
+
+  factory GroupPredictionMatch.fromMap(Map<String, dynamic> data) {
+    final kickoffMillis = data['kickoffMillis'];
+    final predictionItems = (data['predictions'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map(
+          (item) =>
+              GroupPredictionEntry.fromMap(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+
+    return GroupPredictionMatch(
+      homeTeam: data['homeTeam'] as String? ?? 'Local',
+      awayTeam: data['awayTeam'] as String? ?? 'Visitante',
+      kickoff: kickoffMillis is int
+          ? DateTime.fromMillisecondsSinceEpoch(kickoffMillis)
+          : null,
+      userHasPredicted: data['userHasPredicted'] == true,
+      predictionCount:
+          data['predictionCount'] as int? ?? predictionItems.length,
+      predictions: predictionItems,
+    );
+  }
+}
+
+final groupPredictionsProvider =
+    FutureProvider.family<List<GroupPredictionMatch>, String>((
+      ref,
+      groupId,
+    ) async {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('getGroupPredictions')
+          .call({'groupId': groupId});
+      final data = Map<String, dynamic>.from(result.data as Map);
+      return (data['matches'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) =>
+                GroupPredictionMatch.fromMap(Map<String, dynamic>.from(item)),
+          )
+          .toList();
+    });

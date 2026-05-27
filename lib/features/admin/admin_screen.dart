@@ -279,7 +279,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           DropdownButtonFormField<int>(
             initialValue: _lockHours,
             decoration: InputDecoration(labelText: l10n.lockPredictionsBefore),
-            items: [1, 2, 4, 6, 12, 24, 48].map((h) {
+            items: [0, 1, 2, 4, 6, 12, 24, 48].map((h) {
               return DropdownMenuItem(
                 value: h,
                 child: Text(l10n.hoursBefore(h)),

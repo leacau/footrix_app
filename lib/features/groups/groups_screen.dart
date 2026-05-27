@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../leagues/leagues_provider.dart';
 import '../leagues/widgets/league_selector.dart';
 import 'groups_provider.dart';
 import 'group_detail_screen.dart';
@@ -34,6 +35,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final groupsAsync = ref.watch(userGroupsProvider);
+    final leaguesById = {
+      for (final league in ref.watch(leaguesProvider).asData?.value ?? const [])
+        league['id'] as String:
+            league['shortName'] as String? ?? league['name'] as String? ?? '',
+    };
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.myGroups)),
@@ -84,15 +90,27 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     ),
 
                     // Pequeño indicador visual de cuántas ligas van seleccionadas
-                    if (_selectedLeaguesForGroup.length > 1)
+                    if (_selectedLeaguesForGroup.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '${_selectedLeaguesForGroup.length} ligas seleccionadas',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.green,
-                          ),
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final leagueId in _selectedLeaguesForGroup)
+                              InputChip(
+                                label: Text(
+                                  _shortLeagueLabel(leagueId, leaguesById),
+                                ),
+                                onDeleted: () {
+                                  setState(
+                                    () => _selectedLeaguesForGroup.remove(
+                                      leagueId,
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
                         ),
                       ),
 
@@ -121,15 +139,17 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                                 final code = await ref.read(
                                   createGroupProvider((
                                     name: _nameCtrl.text.trim(),
-                                    leagueIds:
-                                        _selectedLeaguesForGroup, // Pasamos el array
+                                    leagueIds: List<String>.from(
+                                      _selectedLeaguesForGroup,
+                                    ),
                                     isLeagueExclusive: _isLeagueExclusive,
                                   )).future,
                                 );
                                 final groupName = _nameCtrl.text.trim();
                                 _nameCtrl.clear();
-                                // Limpiamos la lista tras crear el grupo
-                                _selectedLeaguesForGroup.clear();
+                                setState(() {
+                                  _selectedLeaguesForGroup.clear();
+                                });
 
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -245,7 +265,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     itemCount: groups.length,
                     itemBuilder: (_, i) {
                       final g = groups[i];
-                      final leagueName = g['leagueName'] ?? l10n.allLeaguesName;
+                      final leagueName = _groupLeagueLabel(
+                        g,
+                        l10n.allLeaguesName,
+                      );
                       final isExclusive = g['isLeagueExclusive'] ?? false;
 
                       return ListTile(
@@ -315,5 +338,34 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.codeCopied(code))));
     }
+  }
+
+  String _shortLeagueLabel(String leagueId, Map<String, String> leaguesById) {
+    final name = leaguesById[leagueId];
+    if (name != null && name.trim().isNotEmpty) return name;
+    return leagueId;
+  }
+
+  String _groupLeagueLabel(Map<String, dynamic> group, String fallback) {
+    final leagueNames = (group['leagueNames'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .where((name) => name.trim().isNotEmpty)
+        .toList();
+    if (leagueNames.isNotEmpty) return leagueNames.join(', ');
+
+    final leagueName = group['leagueName'];
+    if (leagueName is String && leagueName.trim().isNotEmpty) {
+      return leagueName;
+    }
+
+    final leagueIds = (group['leagueIds'] as List<dynamic>? ?? const [])
+        .whereType<String>()
+        .toList();
+    if (leagueIds.isNotEmpty) return leagueIds.join(', ');
+
+    final leagueId = group['leagueId'];
+    if (leagueId is String && leagueId.trim().isNotEmpty) return leagueId;
+
+    return fallback;
   }
 }
