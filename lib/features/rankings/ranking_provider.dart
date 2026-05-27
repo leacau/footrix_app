@@ -15,7 +15,7 @@ final rankingProvider =
         RankingScope scope,
         String? filter,
         RankingType type,
-        String? leagueId,
+        dynamic leagueId,
         String? groupId,
       })
     >((ref, params) {
