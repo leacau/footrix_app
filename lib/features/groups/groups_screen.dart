@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/app_localizations.dart';
 import '../leagues/widgets/league_selector.dart';
 import 'groups_provider.dart';
+import 'group_detail_screen.dart';
 
 class GroupsScreen extends ConsumerStatefulWidget {
   const GroupsScreen({super.key});
@@ -220,6 +221,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                       final isExclusive = g['isLeagueExclusive'] ?? false;
 
                       return ListTile(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => GroupDetailScreen(group: g),
+                            ),
+                          );
+                        },
                         title: Text(g['name']),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
