@@ -50,6 +50,44 @@ function chunk<T>(items: T[], size: number): T[][] {
 	return chunks;
 }
 
+function userProfilePatch(
+	context: functions.https.CallableContext,
+	existing: admin.firestore.DocumentData | undefined,
+	leagueIds: string[],
+): admin.firestore.DocumentData {
+	const token = (context.auth?.token ?? {}) as Record<string, unknown>;
+	const patch: admin.firestore.DocumentData = {
+		uid: context.auth!.uid,
+		selectedLeagueIds: admin.firestore.FieldValue.arrayUnion(...leagueIds),
+		updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+	};
+
+	if (!existing?.createdAt) {
+		patch.createdAt = admin.firestore.FieldValue.serverTimestamp();
+	}
+	if (!existing?.email && typeof token.email === 'string') {
+		patch.email = token.email;
+	}
+	if (!existing?.displayName) {
+		const name = typeof token.name === 'string' ? token.name.trim() : '';
+		if (name) patch.displayName = name;
+	}
+	if (!existing?.photoURL && typeof token.picture === 'string') {
+		patch.photoURL = token.picture;
+	}
+	if (typeof existing?.totalPoints !== 'number') patch.totalPoints = 0;
+	if (typeof existing?.triviaPoints !== 'number') patch.triviaPoints = 0;
+	if (typeof existing?.triviaStreak !== 'number') patch.triviaStreak = 0;
+	if (typeof existing?.triviaBestStreak !== 'number') patch.triviaBestStreak = 0;
+	if (typeof existing?.triviaAnswered !== 'number') patch.triviaAnswered = 0;
+	if (!('country' in (existing ?? {}))) patch.country = null;
+	if (!('province' in (existing ?? {}))) patch.province = null;
+	if (!('city' in (existing ?? {}))) patch.city = null;
+	if (!Array.isArray(existing?.privateGroups)) patch.privateGroups = [];
+
+	return patch;
+}
+
 export const createGroup = functions.https.onCall(async (data, context) => {
 	const uid = requireAuth(context);
 	const name = typeof data.name === 'string' ? data.name.trim() : '';
@@ -144,6 +182,9 @@ export const createGroup = functions.https.onCall(async (data, context) => {
 	});
 
 	await db.runTransaction(async (tx) => {
+		const userRef = db.collection('users').doc(uid);
+		const userDoc = await tx.get(userRef);
+
 		tx.set(groupRef, {
 			groupId: code,
 			name,
@@ -161,11 +202,8 @@ export const createGroup = functions.https.onCall(async (data, context) => {
 		});
 
 		tx.set(
-			db.collection('users').doc(uid),
-			{
-				selectedLeagueIds: admin.firestore.FieldValue.arrayUnion(...leagueIds),
-				updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-			},
+			userRef,
+			userProfilePatch(context, userDoc.data(), leagueIds),
 			{ merge: true },
 		);
 	});
@@ -186,6 +224,8 @@ export const joinGroup = functions.https.onCall(async (data, context) => {
 		}
 
 		const group = groupDoc.data()!;
+		const userRef = db.collection('users').doc(uid);
+		const userDoc = await tx.get(userRef);
 		const members = Array.isArray(group.members)
 			? (group.members as string[])
 			: [];
@@ -207,11 +247,8 @@ export const joinGroup = functions.https.onCall(async (data, context) => {
 
 		if (leagueIds.length > 0) {
 			tx.set(
-				db.collection('users').doc(uid),
-				{
-					selectedLeagueIds: admin.firestore.FieldValue.arrayUnion(...leagueIds),
-					updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-				},
+				userRef,
+				userProfilePatch(context, userDoc.data(), leagueIds),
 				{ merge: true },
 			);
 		}

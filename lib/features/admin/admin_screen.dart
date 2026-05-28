@@ -27,6 +27,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   bool _syncingFifa = false;
   bool _savingSettings = false;
   bool _recalculatingPoints = false;
+  bool _repairingUsers = false;
 
   @override
   void initState() {
@@ -228,6 +229,18 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   : const Icon(Icons.calculate),
               label: const Text('Sincronizar resultados y recalcular puntos'),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _repairingUsers ? null : _repairUserDocuments,
+              icon: _repairingUsers
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.manage_accounts),
+              label: const Text('Reparar perfiles de usuarios'),
+            ),
           ],
         );
       },
@@ -263,6 +276,30 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       }
     } finally {
       if (mounted) setState(() => _recalculatingPoints = false);
+    }
+  }
+
+  Future<void> _repairUserDocuments() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _repairingUsers = true);
+    try {
+      final result = await ref
+          .read(adminControllerProvider)
+          .repairUserDocuments();
+      final repaired = result['repaired'] as int? ?? 0;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Perfiles revisados: $repaired')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _repairingUsers = false);
     }
   }
 

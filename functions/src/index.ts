@@ -27,6 +27,7 @@ export { getRankingPredictionCounts } from './rankingActions';
 export {
 	adminCreateMatch,
 	adminFinishMatch,
+	adminRepairUserDocuments,
 	adminSyncAndRecalculateRecentPoints,
 	adminToggleUserStatus,
 	adminUpdatePredictionSettings,

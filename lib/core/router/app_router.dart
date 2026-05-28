@@ -6,6 +6,7 @@ import '../../features/matches/fixture_screen.dart';
 import '../../features/matches/match_detail_screen.dart';
 import '../../features/rankings/leaderboard_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/groups/group_invite_screen.dart';
 import '../../features/groups/groups_screen.dart';
 import '../../features/notifications/notification_handler.dart';
 import '../../features/splash/splash_screen.dart';
@@ -38,10 +39,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = auth.value != null;
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/splash';
+      final isJoiningGroup = state.matchedLocation.startsWith('/join/');
       final isHomeRoute =
           state.matchedLocation == '/home' || state.matchedLocation == '/';
 
       if (isSplash) return null;
+      if (isJoiningGroup) return null;
       if (!isLoggedIn && !isLoggingIn) {
         return '/login';
       }
@@ -71,6 +74,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/rankings', builder: (_, _) => const LeaderboardScreen()),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/groups', builder: (_, _) => const GroupsScreen()),
+      GoRoute(
+        path: '/join/:code',
+        builder: (_, state) {
+          final code = state.pathParameters['code']!;
+          return GroupInviteScreen(code: code);
+        },
+      ),
       GoRoute(path: '/trivia', builder: (_, _) => const TriviaScreen()),
     ],
 

@@ -31,27 +31,7 @@ class AuthController {
     );
     final user = cred.user;
     if (user != null) {
-      final userRef = _firestore.collection('users').doc(user.uid);
-      final userDoc = await userRef.get();
-      if (!userDoc.exists) {
-        await userRef.set({
-          'uid': user.uid,
-          'email': user.email ?? email.trim(),
-          'displayName': user.displayName ?? '',
-          'photoURL': user.photoURL,
-          'totalPoints': 0,
-          'triviaPoints': 0,
-          'triviaStreak': 0,
-          'triviaBestStreak': 0,
-          'triviaAnswered': 0,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'country': null,
-          'province': null,
-          'city': null,
-          'privateGroups': [],
-        });
-      }
+      await ensureUserDocument(user);
     }
     return cred;
   }
@@ -84,12 +64,17 @@ class AuthController {
       'displayName': displayName.trim(),
       'photoURL': user.photoURL,
       'totalPoints': 0,
-      'streakTrivia': 0,
+      'triviaPoints': 0,
+      'triviaStreak': 0,
+      'triviaBestStreak': 0,
+      'triviaAnswered': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'country': null,
+      'province': null,
+      'city': null,
       'privateGroups': [],
-    });
+    }, SetOptions(merge: true));
 
     return cred;
   }
@@ -110,5 +95,41 @@ class AuthController {
     await _firestore.collection('users').doc(uid).update({
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> ensureUserDocument(User user) async {
+    final userRef = _firestore.collection('users').doc(user.uid);
+    final userDoc = await userRef.get();
+    final data = userDoc.data();
+    final patch = <String, dynamic>{
+      'uid': user.uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (!userDoc.exists || data?['createdAt'] == null) {
+      patch['createdAt'] = FieldValue.serverTimestamp();
+    }
+    if (data?['email'] == null && user.email != null) {
+      patch['email'] = user.email;
+    }
+    final authName = user.displayName?.trim() ?? '';
+    if ((data?['displayName'] as String?)?.trim().isNotEmpty != true &&
+        authName.isNotEmpty) {
+      patch['displayName'] = authName;
+    }
+    if (data?['photoURL'] == null && user.photoURL != null) {
+      patch['photoURL'] = user.photoURL;
+    }
+    if (data?['totalPoints'] is! int) patch['totalPoints'] = 0;
+    if (data?['triviaPoints'] is! int) patch['triviaPoints'] = 0;
+    if (data?['triviaStreak'] is! int) patch['triviaStreak'] = 0;
+    if (data?['triviaBestStreak'] is! int) patch['triviaBestStreak'] = 0;
+    if (data?['triviaAnswered'] is! int) patch['triviaAnswered'] = 0;
+    if (data == null || !data.containsKey('country')) patch['country'] = null;
+    if (data == null || !data.containsKey('province')) patch['province'] = null;
+    if (data == null || !data.containsKey('city')) patch['city'] = null;
+    if (data?['privateGroups'] is! List) patch['privateGroups'] = [];
+
+    await userRef.set(patch, SetOptions(merge: true));
   }
 }

@@ -79,6 +79,13 @@ class AdminController {
     return Map<String, dynamic>.from(result.data as Map);
   }
 
+  Future<Map<String, dynamic>> repairUserDocuments() async {
+    final result = await _functions
+        .httpsCallable('adminRepairUserDocuments')
+        .call();
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
   Future<void> updatePredictionSettings(int lockHoursBefore) async {
     await _functions.httpsCallable('adminUpdatePredictionSettings').call({
       'lockHoursBefore': lockHoursBefore,

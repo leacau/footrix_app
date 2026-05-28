@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -342,17 +343,29 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     required String code,
     required String groupName,
   }) async {
-    final l10n = AppLocalizations.of(context)!;
     if (code.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: code));
-    final message = Uri.encodeComponent(l10n.whatsappInvite(groupName, code));
+    final inviteLink = _inviteLink(code);
+    await Clipboard.setData(ClipboardData(text: inviteLink));
+    final message = Uri.encodeComponent(
+      'Sumate a mi grupo "$groupName" en Footrix: $inviteLink',
+    );
     final uri = Uri.parse('https://wa.me/?text=$message');
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(l10n.codeCopied(code))));
+      ).showSnackBar(SnackBar(content: Text('Link copiado: $inviteLink')));
     }
+  }
+
+  String _inviteLink(String code) {
+    final origin = kIsWeb && Uri.base.scheme.startsWith('http')
+        ? '${Uri.base.scheme}://${Uri.base.authority}'
+        : const String.fromEnvironment(
+            'INVITE_BASE_URL',
+            defaultValue: 'https://footrix-dc5a7.web.app',
+          );
+    return '$origin/join/$code';
   }
 
   String _shortLeagueLabel(String leagueId, Map<String, String> leaguesById) {

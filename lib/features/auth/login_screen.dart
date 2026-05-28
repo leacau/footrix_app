@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
+import '../groups/pending_group_invite.dart';
 import 'auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -48,6 +49,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
 
       if (mounted) {
+        final pendingInviteCode = await PendingGroupInvite.take();
+        if (pendingInviteCode != null && mounted) {
+          context.go('/join/$pendingInviteCode');
+          return;
+        }
         final needsProfileName = await _needsProfileName();
         if (mounted) context.go(needsProfileName ? '/profile' : '/fixture');
       }
@@ -109,8 +115,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authProvider);
 
     if (authState.hasValue && authState.value != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/fixture');
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final pendingInviteCode = await PendingGroupInvite.take();
+        if (!mounted) return;
+        context.go(
+          pendingInviteCode != null ? '/join/$pendingInviteCode' : '/fixture',
+        );
       });
     }
 

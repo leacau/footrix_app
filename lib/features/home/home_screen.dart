@@ -8,6 +8,8 @@ import '../../core/l10n/locale_provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../auth/auth_provider.dart';
 
+final _ensuredHomeProfileIds = <String>{};
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -16,7 +18,7 @@ class HomeScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
     final isAdmin = ref.watch(isAdminProvider).valueOrNull == true;
-    _redirectAnonymousProfile(context, user);
+    _ensureProfileAndRedirect(context, ref, user);
 
     return Scaffold(
       appBar: AppBar(
@@ -272,10 +274,18 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _redirectAnonymousProfile(BuildContext context, User? user) {
+  void _ensureProfileAndRedirect(
+    BuildContext context,
+    WidgetRef ref,
+    User? user,
+  ) {
     if (user == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!context.mounted) return;
+      if (!_ensuredHomeProfileIds.contains(user.uid)) {
+        _ensuredHomeProfileIds.add(user.uid);
+        await ref.read(authControllerProvider).ensureUserDocument(user);
+      }
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)

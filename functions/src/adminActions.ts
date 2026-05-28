@@ -244,3 +244,54 @@ export const adminSyncAndRecalculateRecentPoints = functions
 			totalDelta,
 		};
 	});
+
+export const adminRepairUserDocuments = functions
+	.runWith({ timeoutSeconds: 540 })
+	.https.onCall(async (_data, context) => {
+		requireAdmin(context);
+		const db = admin.firestore();
+		let repaired = 0;
+		let pageToken: string | undefined;
+
+		do {
+			const page = await admin.auth().listUsers(1000, pageToken);
+			pageToken = page.pageToken;
+
+			for (const user of page.users) {
+				const userRef = db.collection('users').doc(user.uid);
+				const doc = await userRef.get();
+				const existing = doc.data();
+				const patch: admin.firestore.DocumentData = {
+					uid: user.uid,
+					updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+				};
+
+				if (!existing?.createdAt) {
+					patch.createdAt = admin.firestore.FieldValue.serverTimestamp();
+				}
+				if (!existing?.email && user.email) patch.email = user.email;
+				if (!existing?.displayName && user.displayName) {
+					patch.displayName = user.displayName;
+				}
+				if (!existing?.photoURL && user.photoURL) patch.photoURL = user.photoURL;
+				if (typeof existing?.totalPoints !== 'number') patch.totalPoints = 0;
+				if (typeof existing?.triviaPoints !== 'number') patch.triviaPoints = 0;
+				if (typeof existing?.triviaStreak !== 'number') patch.triviaStreak = 0;
+				if (typeof existing?.triviaBestStreak !== 'number') {
+					patch.triviaBestStreak = 0;
+				}
+				if (typeof existing?.triviaAnswered !== 'number') {
+					patch.triviaAnswered = 0;
+				}
+				if (!('country' in (existing ?? {}))) patch.country = null;
+				if (!('province' in (existing ?? {}))) patch.province = null;
+				if (!('city' in (existing ?? {}))) patch.city = null;
+				if (!Array.isArray(existing?.privateGroups)) patch.privateGroups = [];
+
+				await userRef.set(patch, { merge: true });
+				repaired++;
+			}
+		} while (pageToken);
+
+		return { success: true, repaired };
+	});
