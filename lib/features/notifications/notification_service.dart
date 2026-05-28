@@ -145,7 +145,6 @@ class NotificationService {
 
   static Future<void> requestPermissions() async {
     if (kIsWeb) {
-      await _messaging.requestPermission(alert: true, badge: true, sound: true);
       return;
     }
 

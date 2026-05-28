@@ -1,120 +1,127 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 
+function predictionPoints(
+	homeGuess: number,
+	awayGuess: number,
+	homeScore: number,
+	awayScore: number,
+): number {
+	if (homeGuess === homeScore && awayGuess === awayScore) return 3;
+	if (
+		(homeGuess > awayGuess && homeScore > awayScore) ||
+		(homeGuess < awayGuess && homeScore < awayScore) ||
+		(homeGuess === awayGuess && homeScore === awayScore)
+	) {
+		return 1;
+	}
+	return 0;
+}
+
+export async function processFinishedMatchPoints(
+	matchId: string,
+): Promise<{ updatedCount: number; totalDelta: number }> {
+	const db = admin.firestore();
+	const matchDoc = await db.collection('matches').doc(matchId).get();
+	if (!matchDoc.exists) {
+		throw new Error(`Match ${matchId} not found`);
+	}
+
+	const match = matchDoc.data()!;
+	if (match.status !== 'finished') {
+		return { updatedCount: 0, totalDelta: 0 };
+	}
+
+	const finalHomeScore = match.homeScore;
+	const finalAwayScore = match.awayScore;
+	if (typeof finalHomeScore !== 'number' || typeof finalAwayScore !== 'number') {
+		console.log(`Skipping points for ${matchId}: final score is incomplete`);
+		return { updatedCount: 0, totalDelta: 0 };
+	}
+
+	const predictionsSnap = await db
+		.collection('predictions')
+		.where('matchId', '==', matchId)
+		.get();
+
+	if (predictionsSnap.empty) {
+		console.log(`No predictions found for ${matchId}`);
+		return { updatedCount: 0, totalDelta: 0 };
+	}
+
+	const batch = db.batch();
+	let updatedCount = 0;
+	let totalDelta = 0;
+
+	for (const doc of predictionsSnap.docs) {
+		const prediction = doc.data();
+		const userId = prediction.userId;
+		if (typeof userId !== 'string' || userId.length === 0) continue;
+
+		const homeGuess =
+			typeof prediction.homeGuess === 'number' ? prediction.homeGuess : 0;
+		const awayGuess =
+			typeof prediction.awayGuess === 'number' ? prediction.awayGuess : 0;
+		const newPoints = predictionPoints(
+			homeGuess,
+			awayGuess,
+			finalHomeScore,
+			finalAwayScore,
+		);
+		const previousPoints =
+			prediction.status === 'graded' &&
+			typeof prediction.pointsEarned === 'number'
+				? prediction.pointsEarned
+				: 0;
+		const delta = newPoints - previousPoints;
+
+		batch.update(doc.ref, {
+			pointsEarned: newPoints,
+			status: 'graded',
+			gradedAt: admin.firestore.FieldValue.serverTimestamp(),
+			pointsCalculationVersion: 2,
+		});
+
+		if (delta !== 0) {
+			const userRef = db.collection('users').doc(userId);
+			const updateData: admin.firestore.UpdateData<admin.firestore.DocumentData> =
+				{
+					totalPoints: admin.firestore.FieldValue.increment(delta),
+					updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+				};
+			if (typeof match.leagueId === 'string' && match.leagueId.length > 0) {
+				updateData[`leagueStats.${match.leagueId}.points`] =
+					admin.firestore.FieldValue.increment(delta);
+			}
+			batch.set(userRef, updateData, { merge: true });
+			totalDelta += delta;
+		}
+
+		updatedCount++;
+	}
+
+	await batch.commit();
+	console.log(
+		`Processed ${updatedCount} predictions for ${matchId}, points delta=${totalDelta}`,
+	);
+	return { updatedCount, totalDelta };
+}
+
 export const calculatePointsOnMatchFinish = functions.firestore
 	.document('matches/{matchId}')
 	.onUpdate(async (change, context) => {
 		const before = change.before.data();
 		const after = change.after.data();
 
-		// Solo ejecutar si el partido acaba de finalizar
-		if (before.status !== 'finished' && after.status === 'finished') {
-			const db = admin.firestore();
-			const finalHomeScore = after.homeScore;
-			const finalAwayScore = after.awayScore;
+		if (after.status !== 'finished') return null;
 
-			if (
-				typeof finalHomeScore !== 'number' ||
-				typeof finalAwayScore !== 'number'
-			) {
-				console.log(
-					`Skipping points for ${context.params.matchId}: final score is incomplete`,
-				);
-				return null;
-			}
+		const becameFinished = before.status !== 'finished';
+		const scoreChanged =
+			before.homeScore !== after.homeScore ||
+			before.awayScore !== after.awayScore;
 
-			// Obtener predicciones pendientes de este partido
-			const predictionsSnap = await db
-				.collection('predictions')
-				.where('matchId', '==', context.params.matchId)
-				.where('status', '==', 'pending')
-				.get();
+		if (!becameFinished && !scoreChanged) return null;
 
-			if (predictionsSnap.empty) {
-				console.log(
-					`ℹ️ No hay predicciones pendientes para ${context.params.matchId}`,
-				);
-				return null;
-			}
-
-			const batch = db.batch();
-			let updatedCount = 0;
-
-			// ✅ CORRECCIÓN: Usar for...of en lugar de forEach para soportar await
-			for (const doc of predictionsSnap.docs) {
-				const p = doc.data();
-				let pts = 0;
-
-				// Valores seguros con fallback a 0
-				const homeGuess = (p.homeGuess as number) || 0;
-				const awayGuess = (p.awayGuess as number) || 0;
-				const homeScore = finalHomeScore;
-				const awayScore = finalAwayScore;
-
-				// 🎯 3 pts: Resultado EXACTO
-				if (homeGuess === homeScore && awayGuess === awayScore) {
-					pts = 3;
-				}
-				// 🎯 1 pt: Acertar el RESULTADO (ganador/empate)
-				else if (
-					// Local gana en ambos
-					(homeGuess > awayGuess && homeScore > awayScore) ||
-					// Visita gana en ambos
-					(homeGuess < awayGuess && homeScore < awayScore) ||
-					// Empate en ambos
-					(homeGuess === awayGuess && homeScore === awayScore)
-				) {
-					pts = 1;
-				}
-
-				// Actualizar predicción
-				batch.update(doc.ref, {
-					pointsEarned: pts,
-					status: 'graded',
-					gradedAt: admin.firestore.FieldValue.serverTimestamp(),
-				});
-
-				// Sumar puntos al usuario
-				const userRef = db.collection('users').doc(p.userId as string);
-
-				// ✅ CORRECCIÓN: await dentro de for...of (sí funciona)
-				const userDoc = await userRef.get();
-
-				if (userDoc.exists) {
-					const updateData: admin.firestore.UpdateData<admin.firestore.DocumentData> = {
-						totalPoints: admin.firestore.FieldValue.increment(pts),
-						updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-					};
-					if (typeof after.leagueId === 'string' && after.leagueId.length > 0) {
-						updateData[`leagueStats.${after.leagueId}.points`] =
-							admin.firestore.FieldValue.increment(pts);
-					}
-					batch.update(userRef, updateData);
-				} else {
-					// Fallback: crear usuario si no existe (por seguridad)
-					const userData: admin.firestore.DocumentData = {
-						uid: p.userId,
-						totalPoints: pts,
-						createdAt: admin.firestore.FieldValue.serverTimestamp(),
-						updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-					};
-					if (typeof after.leagueId === 'string' && after.leagueId.length > 0) {
-						userData.leagueStats = {
-							[after.leagueId]: { points: pts },
-						};
-					}
-					batch.set(userRef, userData, { merge: true });
-				}
-
-				updatedCount++;
-			}
-
-			await batch.commit();
-			console.log(
-				`✅ ${updatedCount} predicciones procesadas para ${context.params.matchId}`,
-			);
-			return { success: true, updatedCount };
-		}
-
-		return null;
+		const result = await processFinishedMatchPoints(context.params.matchId);
+		return { success: true, ...result };
 	});

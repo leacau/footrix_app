@@ -1,5 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { processFinishedMatchPoints } from './calculatePointsOnMatchFinish';
+import { syncFifaMatches } from './fifaApi';
 
 function requireAdmin(context: functions.https.CallableContext): void {
 	if (!context.auth) {
@@ -186,3 +188,59 @@ export const adminUpdateTriviaSettings = functions.https.onCall(
 		return { success: true, dailyQuestionLimit };
 	},
 );
+
+function addDays(date: Date, days: number): Date {
+	const copy = new Date(date);
+	copy.setUTCDate(copy.getUTCDate() + days);
+	return copy;
+}
+
+function startOfUtcDay(date: Date): Date {
+	return new Date(
+		Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+	);
+}
+
+function endOfUtcDay(date: Date): Date {
+	const start = startOfUtcDay(date);
+	return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1000);
+}
+
+export const adminSyncAndRecalculateRecentPoints = functions
+	.runWith({ timeoutSeconds: 540 })
+	.https.onCall(async (_data, context) => {
+		requireAdmin(context);
+		const db = admin.firestore();
+		const today = startOfUtcDay(new Date());
+		const yesterday = addDays(today, -1);
+
+		const yesterdaySync = await syncFifaMatches(yesterday, endOfUtcDay(yesterday));
+		const todaySync = await syncFifaMatches(today, endOfUtcDay(today));
+
+		const cutoff = admin.firestore.Timestamp.fromDate(addDays(new Date(), -7));
+		const finishedMatches = await db
+			.collection('matches')
+			.where('status', '==', 'finished')
+			.where('kickoff', '>=', cutoff)
+			.limit(300)
+			.get();
+
+		let predictionsProcessed = 0;
+		let totalDelta = 0;
+		for (const matchDoc of finishedMatches.docs) {
+			const result = await processFinishedMatchPoints(matchDoc.id);
+			predictionsProcessed += result.updatedCount;
+			totalDelta += result.totalDelta;
+		}
+
+		return {
+			success: true,
+			matchesSynced:
+				yesterdaySync.matchesSynced + todaySync.matchesSynced,
+			leaguesSynced:
+				yesterdaySync.leaguesSynced + todaySync.leaguesSynced,
+			matchesRecalculated: finishedMatches.size,
+			predictionsProcessed,
+			totalDelta,
+		};
+	});

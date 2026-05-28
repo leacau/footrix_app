@@ -8,13 +8,14 @@ import '../../features/rankings/leaderboard_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/groups/groups_screen.dart';
 import '../../features/notifications/notification_handler.dart';
+import '../../features/splash/splash_screen.dart';
 import '../../features/trivia/trivia_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/admin/admin_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
 
     // ✅ CORRECCIÓN: Usar ref.read() en lugar de ref.watch() dentro de redirect
     redirect: (context, state) {
@@ -36,9 +37,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isLoggedIn = auth.value != null;
       final isLoggingIn = state.matchedLocation == '/login';
+      final isSplash = state.matchedLocation == '/splash';
       final isHomeRoute =
           state.matchedLocation == '/home' || state.matchedLocation == '/';
 
+      if (isSplash) return null;
       if (!isLoggedIn && !isLoggingIn) {
         return '/login';
       }
@@ -50,6 +53,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
+      GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/admin', builder: (_, _) => const AdminScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
 

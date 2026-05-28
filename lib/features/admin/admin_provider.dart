@@ -72,6 +72,13 @@ class AdminController {
     return Map<String, dynamic>.from(result.data as Map);
   }
 
+  Future<Map<String, dynamic>> syncAndRecalculateRecentPoints() async {
+    final result = await _functions
+        .httpsCallable('adminSyncAndRecalculateRecentPoints')
+        .call();
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
   Future<void> updatePredictionSettings(int lockHoursBefore) async {
     await _functions.httpsCallable('adminUpdatePredictionSettings').call({
       'lockHoursBefore': lockHoursBefore,

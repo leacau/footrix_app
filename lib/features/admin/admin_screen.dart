@@ -26,6 +26,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   int _lockHours = 12;
   bool _syncingFifa = false;
   bool _savingSettings = false;
+  bool _recalculatingPoints = false;
 
   @override
   void initState() {
@@ -213,12 +214,56 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
                   : const Icon(Icons.save),
               label: Text(l10n.saveSettings),
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _recalculatingPoints
+                  ? null
+                  : _syncAndRecalculateRecentPoints,
+              icon: _recalculatingPoints
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.calculate),
+              label: const Text('Sincronizar resultados y recalcular puntos'),
+            ),
           ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('${l10n.error}: $error')),
     );
+  }
+
+  Future<void> _syncAndRecalculateRecentPoints() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _recalculatingPoints = true);
+    try {
+      final result = await ref
+          .read(adminControllerProvider)
+          .syncAndRecalculateRecentPoints();
+      final matches = result['matchesRecalculated'] as int? ?? 0;
+      final predictions = result['predictionsProcessed'] as int? ?? 0;
+      final delta = result['totalDelta'] as int? ?? 0;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Recalculado: $matches partidos, $predictions predicciones, delta $delta pts',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _recalculatingPoints = false);
+    }
   }
 
   Future<void> _saveSettings() async {

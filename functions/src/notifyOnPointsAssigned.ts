@@ -8,13 +8,20 @@ export const notifyOnPointsAssigned = functions.firestore
 		const before = change.before.data();
 		const after = change.after.data();
 
-		if (before.status === 'graded' || after.status !== 'graded') {
+		const beforePoints =
+			typeof before.pointsEarned === 'number' ? before.pointsEarned : null;
+		const afterPoints =
+			typeof after.pointsEarned === 'number' ? after.pointsEarned : 0;
+		const wasAlreadyGraded = before.status === 'graded';
+		const pointsChanged = beforePoints !== afterPoints;
+
+		if (after.status !== 'graded' || (wasAlreadyGraded && !pointsChanged)) {
 			return null;
 		}
 
 		const userId = after.userId as string;
 		const matchId = after.matchId as string;
-		const points = (after.pointsEarned as number) ?? 0;
+		const points = afterPoints;
 
 		const matchDoc = await admin
 			.firestore()
