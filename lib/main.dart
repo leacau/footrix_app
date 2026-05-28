@@ -9,6 +9,7 @@ import 'core/l10n/locale_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/notifications/notification_service.dart';
+import 'features/updates/app_distribution_update_service.dart';
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
 
@@ -43,6 +44,7 @@ void main() async {
 
   runApp(const ProviderScope(child: FootrixApp()));
   _configureNotifications();
+  AppDistributionUpdateService.checkForTesterUpdateInBackground();
 }
 
 Future<void> _configureNotifications() async {
