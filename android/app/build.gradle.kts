@@ -24,8 +24,8 @@ android {
         applicationId = "com.footrix.app"
         minSdk = flutter.minSdkVersion
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 5
+        versionName = "2.3.0"
         multiDexEnabled = true
         missingDimensionStrategy("default", "staging")
     }
@@ -44,5 +44,3 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
-
-// 🔥 NO hace falta el buildscript aquí si ya está en el root

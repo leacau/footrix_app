@@ -229,6 +229,23 @@ class _MatchCardState extends State<MatchCard> {
                 ),
               ),
             ],
+            if (isFinished && hasPrediction) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.existingPrediction!.pointsEarned == null
+                    ? 'Puntaje: recalculando'
+                    : 'Puntaje: ${widget.existingPrediction!.pointsEarned} pts',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: widget.existingPrediction!.pointsEarned == null
+                      ? Colors.grey.shade700
+                      : widget.existingPrediction!.pointsEarned! > 0
+                      ? Colors.green.shade700
+                      : Colors.red.shade700,
+                ),
+              ),
+            ],
             if (_venueLabel() != null) ...[
               const SizedBox(height: 8),
               Row(

@@ -12,7 +12,7 @@ class NotificationHandler {
 
     // Si la app está en foreground, navegar inmediatamente
     // Si está en background/terminated, guardar para redirigir en el redirect del router
-    _pendingRoute = route;
+    _pendingRoute = _normalizeRoute(route);
   }
 
   /// ✅ Obtener y limpiar la ruta pendiente
@@ -28,8 +28,16 @@ class NotificationHandler {
   }
 
   /// ✅ Helpers para construir rutas de notificaciones
-  static String routeForMatch(String matchId) => '/match/$matchId';
+  static String routeForMatch(String matchId) => '/fixture?matchId=$matchId';
   static String routeForGroups() => '/groups';
   static String routeForFixture() => '/fixture';
   static String routeForRankings() => '/rankings';
+
+  static String _normalizeRoute(String route) {
+    if (route.startsWith('/match/')) {
+      final matchId = route.substring('/match/'.length).split('?').first;
+      return matchId.isEmpty ? '/fixture' : routeForMatch(matchId);
+    }
+    return route;
+  }
 }

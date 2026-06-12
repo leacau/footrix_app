@@ -108,7 +108,7 @@ async function notifyLeagueUsers(
 			await sendNotificationToUser(userDoc.id, {
 				notification: copy,
 				data: {
-					route: `/match/${matchDoc.id}`,
+					route: `/fixture?matchId=${matchDoc.id}`,
 					type: event,
 					matchId: matchDoc.id,
 				},
@@ -198,7 +198,7 @@ export const notifyOnMatchGoal = functions.firestore
 						body: `${text(after.homeTeam, 'Local')} ${home} - ${away} ${text(after.awayTeam, 'Visitante')}`,
 					},
 					data: {
-						route: `/match/${context.params.matchId}`,
+						route: `/fixture?matchId=${context.params.matchId}`,
 						type: 'goal',
 						matchId: context.params.matchId,
 					},

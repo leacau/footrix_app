@@ -160,12 +160,7 @@ class HomeScreen extends ConsumerWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
         onDestinationSelected: (index) {
-          final routes = [
-            '/fixture',
-            '/groups',
-            '/rankings',
-            '/profile',
-          ];
+          final routes = ['/fixture', '/groups', '/rankings', '/profile'];
           if (index < routes.length && context.mounted) {
             context.push(routes[index]);
           }
@@ -294,42 +289,38 @@ class _HomeStats extends StatelessWidget {
       builder: (context, userSnapshot) {
         final totalPoints =
             userSnapshot.data?.data()?['totalPoints'] as int? ?? 0;
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: firestore
-              .collection('predictions')
-              .where('userId', isEqualTo: uid)
-              .snapshots(),
-          builder: (context, predictionsSnapshot) {
-            final predictionCount = predictionsSnapshot.data?.size ?? 0;
-            return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: firestore.collection('world_cup_scores').doc(uid).snapshots(),
-              builder: (context, worldCupSnapshot) {
-                final worldCupPoints =
-                    worldCupSnapshot.data?.data()?['totalPoints'] as int? ?? 0;
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: firestore.collection('world_cup_scores').doc(uid).snapshots(),
+          builder: (context, worldCupSnapshot) {
+            final worldCupPoints =
+                worldCupSnapshot.data?.data()?['totalPoints'] as int? ?? 0;
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: _statChip('Fixture', '$totalPoints pts'),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _statChip('Puntos', '$totalPoints'),
-                            _statChip('Predicciones', '$predictionCount'),
-                            _statChip('Mundial', '$worldCupPoints'),
-                          ],
+                        Expanded(
+                          child: _statChip(
+                            'Mundial 2026',
+                            '$worldCupPoints pts',
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                );
-              },
+                  ],
+                ),
+              ),
             );
           },
         );

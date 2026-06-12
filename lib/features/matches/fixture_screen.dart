@@ -13,7 +13,9 @@ import 'models/prediction_model.dart';
 import 'widgets/match_card.dart';
 
 class FixtureScreen extends ConsumerStatefulWidget {
-  const FixtureScreen({super.key});
+  final String? highlightedMatchId;
+
+  const FixtureScreen({super.key, this.highlightedMatchId});
 
   @override
   ConsumerState<FixtureScreen> createState() => _FixtureScreenState();
@@ -73,6 +75,7 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
         ],
       ),
       body: _FixtureBody(
+        highlightedMatchId: widget.highlightedMatchId,
         selectedLeagueId: _selectedLeagueId,
         onLeagueSelected: (leagueId) {
           setState(() => _selectedLeagueId = leagueId);
@@ -83,10 +86,12 @@ class _FixtureScreenState extends ConsumerState<FixtureScreen> {
 }
 
 class _FixtureBody extends StatelessWidget {
+  final String? highlightedMatchId;
   final String? selectedLeagueId;
   final ValueChanged<String?> onLeagueSelected;
 
   const _FixtureBody({
+    required this.highlightedMatchId,
     required this.selectedLeagueId,
     required this.onLeagueSelected,
   });
@@ -103,6 +108,9 @@ class _FixtureBody extends StatelessWidget {
       initialIndex: todayIndex,
       child: Column(
         children: [
+          if (highlightedMatchId != null)
+            _HighlightedMatch(matchId: highlightedMatchId!),
+          const _FixturePointsSummary(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: LeagueSelector(
@@ -180,6 +188,150 @@ class _FixtureBody extends StatelessWidget {
     );
 
     return tabs;
+  }
+}
+
+class _HighlightedMatch extends StatelessWidget {
+  final String matchId;
+
+  const _HighlightedMatch({required this.matchId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('matches')
+          .doc(matchId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const LinearProgressIndicator(minHeight: 2);
+        }
+        final doc = snapshot.data!;
+        if (!doc.exists) return const SizedBox.shrink();
+        final match = FootballMatch.fromFirestore(doc);
+        return ColoredBox(
+          color: Theme.of(context).colorScheme.primaryContainer.withAlpha(80),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Partido de la notificacion',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                _PredictionAwareMatchCard(match: match),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FixturePointsSummary extends ConsumerWidget {
+  const _FixturePointsSummary();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+    final leagues = ref.watch(leaguesProvider).valueOrNull ?? const [];
+    final leagueNames = {
+      for (final league in leagues)
+        league['id'] as String:
+            league['shortName'] as String? ??
+            league['name'] as String? ??
+            league['id'] as String,
+    };
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data() ?? const <String, dynamic>{};
+        final globalPoints = data['totalPoints'] as int? ?? 0;
+        final leagueStats = Map<String, dynamic>.from(
+          data['leagueStats'] as Map? ?? const {},
+        );
+        final entries = leagueStats.entries.toList()
+          ..sort(
+            (a, b) => (leagueNames[a.key] ?? a.key).compareTo(
+              leagueNames[b.key] ?? b.key,
+            ),
+          );
+
+        return SizedBox(
+          height: 76,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            scrollDirection: Axis.horizontal,
+            children: [
+              _FixturePointsItem(
+                label: 'Puntaje global',
+                points: globalPoints,
+                emphasized: true,
+              ),
+              for (final entry in entries)
+                _FixturePointsItem(
+                  label: leagueNames[entry.key] ?? entry.key,
+                  points: (entry.value as Map?)?['points'] as int? ?? 0,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FixturePointsItem extends StatelessWidget {
+  final String label;
+  final int points;
+  final bool emphasized;
+
+  const _FixturePointsItem({
+    required this.label,
+    required this.points,
+    this.emphasized = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 132,
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: emphasized
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11),
+          ),
+          Text(
+            '$points pts',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
   }
 }
 

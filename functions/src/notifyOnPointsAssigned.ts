@@ -58,7 +58,7 @@ export const notifyOnPointsAssigned = functions.firestore
 		const result = await sendNotificationToUser(userId, {
 			notification: { title, body },
 			data: {
-				route: `/match/${matchId}`,
+				route: `/fixture?matchId=${matchId}`,
 				type: 'points_assigned',
 				points: points.toString(),
 			},

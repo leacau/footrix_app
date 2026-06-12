@@ -20,6 +20,8 @@ class WorldCupMatch {
   final String status;
   final int? homeScore;
   final int? awayScore;
+  final String? winnerTeamId;
+  final String? winnerTeamName;
 
   const WorldCupMatch({
     required this.id,
@@ -36,6 +38,8 @@ class WorldCupMatch {
     required this.status,
     this.homeScore,
     this.awayScore,
+    this.winnerTeamId,
+    this.winnerTeamName,
   });
 
   factory WorldCupMatch.fromFirestore(DocumentSnapshot doc) {
@@ -56,6 +60,8 @@ class WorldCupMatch {
       status: data['status'] as String? ?? 'scheduled',
       homeScore: data['homeScore'] as int?,
       awayScore: data['awayScore'] as int?,
+      winnerTeamId: data['winnerTeamId'] as String?,
+      winnerTeamName: data['winnerTeamName'] as String?,
     );
   }
 
@@ -185,6 +191,18 @@ final worldCupScoresProvider = StreamProvider<List<Map<String, dynamic>>>((
       });
 });
 
+final currentWorldCupScoreProvider = StreamProvider<Map<String, dynamic>>((
+  ref,
+) {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return Stream.value(const {});
+  return FirebaseFirestore.instance
+      .collection('world_cup_scores')
+      .doc(uid)
+      .snapshots()
+      .map((doc) => doc.data() ?? const {});
+});
+
 int _worldCupPointsSort(Map<String, dynamic> a, Map<String, dynamic> b) {
   final points = (b['totalPoints'] as int? ?? 0).compareTo(
     a['totalPoints'] as int? ?? 0,
@@ -231,5 +249,20 @@ class WorldCupController {
         });
     final data = Map<String, dynamic>.from(result.data as Map);
     return data['predictionCount'] as int? ?? picks.length;
+  }
+
+  Future<void> refreshMyScore() async {
+    await _functions.httpsCallable('refreshMyWorldCupScore').call();
+  }
+
+  Future<List<Map<String, dynamic>>> otherPredictions(String matchId) async {
+    final result = await _functions
+        .httpsCallable('getWorldCupMatchPredictions')
+        .call({'matchId': matchId});
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return (data['predictions'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
   }
 }

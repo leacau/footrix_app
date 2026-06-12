@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/auth_provider.dart';
 import '../../features/matches/fixture_screen.dart';
-import '../../features/matches/match_detail_screen.dart';
 import '../../features/rankings/leaderboard_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/groups/group_invite_screen.dart';
@@ -63,13 +62,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
 
-      GoRoute(path: '/fixture', builder: (_, _) => const FixtureScreen()),
       GoRoute(
-        path: '/match/:matchId',
-        builder: (_, state) {
-          final id = state.pathParameters['matchId']!;
-          return MatchDetailScreen(matchId: id);
-        },
+        path: '/fixture',
+        builder: (_, state) => FixtureScreen(
+          highlightedMatchId: state.uri.queryParameters['matchId'],
+        ),
       ),
       GoRoute(path: '/rankings', builder: (_, _) => const LeaderboardScreen()),
       GoRoute(path: '/world-cup', builder: (_, _) => const WorldCupScreen()),

@@ -48,6 +48,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         appBar: AppBar(
           title: Text(l10n.myGroups),
           bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
             tabs: [
               Tab(text: 'Crear / Unirse'),
               Tab(text: 'Mis grupos'),

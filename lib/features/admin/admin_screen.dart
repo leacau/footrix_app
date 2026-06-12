@@ -82,6 +82,9 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: [
             Tab(text: l10n.users),
             const Tab(text: 'Predicciones'),
@@ -230,8 +233,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       final predictions = result['predictionsProcessed'] as int? ?? 0;
       final delta = result['totalDelta'] as int? ?? 0;
       final users = result['usersRecalculated'] as int? ?? 0;
-      final worldCupUsers =
-          result['worldCupUsersRecalculated'] as int? ?? 0;
+      final worldCupUsers = result['worldCupUsersRecalculated'] as int? ?? 0;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

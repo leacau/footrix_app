@@ -25,7 +25,9 @@ export { getRankingPredictionCounts } from './rankingActions';
 export {
 	recalculateWorldCupScores,
 	recalculateWorldCupScoresOnResult,
+	refreshMyWorldCupScore,
 	saveWorldCupPredictions,
+	getWorldCupMatchPredictions,
 } from './worldCupActions';
 export {
 	adminDeletePredictions,

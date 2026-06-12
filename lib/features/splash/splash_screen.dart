@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
+
+import '../auth/biometric_auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -52,9 +55,45 @@ class _SplashScreenState extends State<SplashScreen> {
     }
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
     if (!mounted || _navigated) return;
     _navigated = true;
+
+    if (!kIsWeb) {
+      final saved = await BiometricAuthService.load();
+      final shouldUseBiometrics =
+          saved.remember &&
+          saved.biometricEnabled &&
+          saved.email.isNotEmpty &&
+          saved.password.isNotEmpty;
+      if (shouldUseBiometrics) {
+        final available = await BiometricAuthService.isAvailable();
+        if (available) {
+          for (var attempt = 0; attempt < 3; attempt++) {
+            try {
+              final authenticated = await BiometricAuthService.authenticate();
+              if (!authenticated) continue;
+              if (FirebaseAuth.instance.currentUser == null) {
+                await FirebaseAuth.instance.signInWithEmailAndPassword(
+                  email: saved.email,
+                  password: saved.password,
+                );
+              }
+              if (mounted) context.go('/home');
+              return;
+            } catch (_) {
+              // A failed or cancelled prompt counts as one attempt.
+            }
+          }
+        }
+
+        await FirebaseAuth.instance.signOut();
+        if (mounted) context.go('/login');
+        return;
+      }
+    }
+
+    if (!mounted) return;
     context.go('/home');
   }
 

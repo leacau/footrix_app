@@ -30,6 +30,7 @@ type Simulation = {
 	standingsByGroup: Map<string, StandingRow[]>;
 	qualifiedByKey: Map<string, { position: number; groupName: string }>;
 	winnersByMatchNumber: Map<number, string>;
+	teamsByMatchNumber: Map<number, { homeKey: string; awayKey: string }>;
 };
 
 function requireAuth(context: functions.https.CallableContext): string {
@@ -250,6 +251,10 @@ function simulateWorldCup(
 	const usedThirds = new Set<string>();
 	const winnersByMatchNumber = new Map<number, string>();
 	const runnersUpByMatchNumber = new Map<number, string>();
+	const teamsByMatchNumber = new Map<
+		number,
+		{ homeKey: string; awayKey: string }
+	>();
 	const sortedKnockout = matches
 		.filter((doc) => {
 			const match = doc.data();
@@ -279,6 +284,7 @@ function simulateWorldCup(
 				winnersByMatchNumber,
 				runnersUpByMatchNumber,
 			) ?? teamKey(match, false);
+		teamsByMatchNumber.set(number, { homeKey, awayKey });
 		const prediction = predictions[matchDoc.id];
 		if (!prediction) continue;
 
@@ -301,7 +307,12 @@ function simulateWorldCup(
 		if (runnerUpKey) runnersUpByMatchNumber.set(number, runnerUpKey);
 	}
 
-	return { standingsByGroup, qualifiedByKey, winnersByMatchNumber };
+	return {
+		standingsByGroup,
+		qualifiedByKey,
+		winnersByMatchNumber,
+		teamsByMatchNumber,
+	};
 }
 
 function actualPredictions(matches: WorldCupMatchDoc[]): Record<string, CleanPrediction> {
@@ -410,27 +421,78 @@ export async function updateWorldCupScoreForUser(
 			? userDoc.data()!.displayName.trim()
 			: 'Anonimo';
 
+	const actual = simulateWorldCup(matchDocs, actualPredictions(matchDocs));
+	const predicted = simulateWorldCup(matchDocs, predictions);
 	let matchPoints = 0;
 	let gradedPredictions = 0;
+	const matchBreakdown: Record<
+		string,
+		{
+			matchNumber: number | null;
+			homeGuess: number;
+			awayGuess: number;
+			homeScore: number;
+			awayScore: number;
+			points: number;
+			matchupCorrect: boolean;
+		}
+	> = {};
 	for (const matchDoc of matchDocs) {
 		const match = matchDoc.data();
 		const prediction = predictions[matchDoc.id];
-		if (!prediction) continue;
-		if (match.status !== 'finished') continue;
+		if (!prediction || match.status !== 'finished') continue;
 		const homeScore = match.homeScore;
 		const awayScore = match.awayScore;
 		if (typeof homeScore !== 'number' || typeof awayScore !== 'number') continue;
-		matchPoints += predictionPoints(
-			prediction.homeGuess,
-			prediction.awayGuess,
+
+		const number = matchNumber(match);
+		const isGroupStage =
+			typeof match.groupName === 'string' && match.groupName.trim().length > 0;
+		let matchupCorrect = isGroupStage;
+		let scoredHomeGuess = prediction.homeGuess;
+		let scoredAwayGuess = prediction.awayGuess;
+
+		if (!isGroupStage && number != null) {
+			const predictedTeams = predicted.teamsByMatchNumber.get(number);
+			const actualTeams = actual.teamsByMatchNumber.get(number);
+			const sameOrder =
+				predictedTeams != null &&
+				actualTeams != null &&
+				predictedTeams.homeKey === actualTeams.homeKey &&
+				predictedTeams.awayKey === actualTeams.awayKey;
+			const reversed =
+				predictedTeams != null &&
+				actualTeams != null &&
+				predictedTeams.homeKey === actualTeams.awayKey &&
+				predictedTeams.awayKey === actualTeams.homeKey;
+			matchupCorrect = sameOrder || reversed;
+			if (reversed) {
+				scoredHomeGuess = prediction.awayGuess;
+				scoredAwayGuess = prediction.homeGuess;
+			}
+		}
+
+		const points = matchupCorrect
+			? predictionPoints(
+					scoredHomeGuess,
+					scoredAwayGuess,
+					homeScore,
+					awayScore,
+				)
+			: 0;
+		matchPoints += points;
+		gradedPredictions++;
+		matchBreakdown[matchDoc.id] = {
+			matchNumber: number,
+			homeGuess: prediction.homeGuess,
+			awayGuess: prediction.awayGuess,
 			homeScore,
 			awayScore,
-		);
-		gradedPredictions++;
+			points,
+			matchupCorrect,
+		};
 	}
 
-	const actual = simulateWorldCup(matchDocs, actualPredictions(matchDocs));
-	const predicted = simulateWorldCup(matchDocs, predictions);
 	let groupPoints = 0;
 	const groupStageMatches = matchDocs.filter((doc) => {
 		const groupName = doc.data().groupName;
@@ -447,7 +509,7 @@ export async function updateWorldCupScoreForUser(
 				predictedQualified.groupName === actualQualified.groupName &&
 				predictedQualified.position === actualQualified.position
 					? 5
-					: 1;
+					: 2;
 		}
 	}
 
@@ -460,17 +522,16 @@ export async function updateWorldCupScoreForUser(
 		[104, 104],
 	] as const;
 	for (const [firstMatch, lastMatch] of knockoutRounds) {
-		const roundFinished = matchDocs
-			.filter((doc) => {
-				const number = matchNumber(doc.data());
-				return number != null && number >= firstMatch && number <= lastMatch;
-			})
-			.every((doc) => doc.data().status === 'finished');
-		if (!roundFinished) continue;
 		const actualWinners = new Set<string>();
 		const predictedWinners = new Set<string>();
 		for (let number = firstMatch; number <= lastMatch; number++) {
-			const actualWinner = actual.winnersByMatchNumber.get(number);
+			const matchFinished = matchDocs.some((doc) => {
+				const match = doc.data();
+				return matchNumber(match) === number && match.status === 'finished';
+			});
+			const actualWinner = matchFinished
+				? actual.winnersByMatchNumber.get(number)
+				: undefined;
 			const predictedWinner = predicted.winnersByMatchNumber.get(number);
 			if (actualWinner) actualWinners.add(actualWinner);
 			if (predictedWinner) predictedWinners.add(predictedWinner);
@@ -493,6 +554,8 @@ export async function updateWorldCupScoreForUser(
 			predictionCount,
 			gradedPredictions,
 			average: predictionCount > 0 ? totalPoints / predictionCount : 0,
+			matchBreakdown,
+			scoringVersion: 4,
 			updatedAt: admin.firestore.FieldValue.serverTimestamp(),
 		},
 		{ merge: true },
@@ -586,6 +649,104 @@ export const saveWorldCupPredictions = functions.https.onCall(
 	},
 );
 
+export const getWorldCupMatchPredictions = functions.https.onCall(
+	async (data, context) => {
+		const uid = requireAuth(context);
+		const matchId =
+			typeof data?.matchId === 'string' ? data.matchId.trim() : '';
+		if (!matchId) {
+			throw new functions.https.HttpsError(
+				'invalid-argument',
+				'Partido invalido',
+			);
+		}
+
+		const db = admin.firestore();
+		const [matchDoc, ownPredictionDoc] = await Promise.all([
+			db.collection('matches').doc(matchId).get(),
+			db.collection('world_cup_predictions').doc(uid).get(),
+		]);
+		if (!matchDoc.exists || !isWorldCupMatch(matchDoc.data() ?? {})) {
+			throw new functions.https.HttpsError('not-found', 'Partido no encontrado');
+		}
+
+		const ownPredictions = ownPredictionDoc.data()?.matchPredictions;
+		const ownPrediction =
+			typeof ownPredictions === 'object' &&
+			ownPredictions != null &&
+			!Array.isArray(ownPredictions)
+				? (ownPredictions as Record<string, PredictionInput>)[matchId]
+				: null;
+		if (
+			typeof ownPrediction !== 'object' ||
+			ownPrediction == null ||
+			typeof ownPrediction.homeGuess !== 'number' ||
+			typeof ownPrediction.awayGuess !== 'number'
+		) {
+			throw new functions.https.HttpsError(
+				'failed-precondition',
+				'Primero tenes que guardar tu prediccion',
+			);
+		}
+
+		const predictionsSnap = await db.collection('world_cup_predictions').get();
+		const rows: Array<{
+			userId: string;
+			homeGuess: number;
+			awayGuess: number;
+		}> = [];
+		for (const doc of predictionsSnap.docs) {
+			if (doc.id === uid) continue;
+			const raw = doc.data().matchPredictions;
+			const prediction =
+				typeof raw === 'object' && raw != null && !Array.isArray(raw)
+					? (raw as Record<string, PredictionInput>)[matchId]
+					: null;
+			if (
+				typeof prediction !== 'object' ||
+				prediction == null ||
+				typeof prediction.homeGuess !== 'number' ||
+				typeof prediction.awayGuess !== 'number'
+			) {
+				continue;
+			}
+			rows.push({
+				userId: doc.id,
+				homeGuess: prediction.homeGuess,
+				awayGuess: prediction.awayGuess,
+			});
+		}
+
+		const userDocs =
+			rows.length === 0
+				? []
+				: await db.getAll(
+						...rows.map((row) => db.collection('users').doc(row.userId)),
+					);
+		const names = new Map(
+			userDocs.map((doc) => {
+				const displayName = doc.data()?.displayName;
+				return [
+					doc.id,
+					typeof displayName === 'string' && displayName.trim()
+						? displayName.trim()
+						: 'Anonimo',
+				];
+			}),
+		);
+
+		return {
+			predictions: rows
+				.map((row) => ({
+					displayName: names.get(row.userId) ?? 'Anonimo',
+					homeGuess: row.homeGuess,
+					awayGuess: row.awayGuess,
+				}))
+				.sort((a, b) => a.displayName.localeCompare(b.displayName)),
+		};
+	},
+);
+
 export const recalculateWorldCupScores = functions
 	.runWith({ timeoutSeconds: 540 })
 	.https.onCall(async (_data, context) => {
@@ -593,6 +754,22 @@ export const recalculateWorldCupScores = functions
 		const updated = await recalculateAllWorldCupScores();
 		return { success: true, updated };
 	});
+
+export const refreshMyWorldCupScore = functions.https.onCall(
+	async (_data, context) => {
+		const uid = requireAuth(context);
+		await recalculateWorldCupUserScore(uid);
+		const score = await admin
+			.firestore()
+			.collection('world_cup_scores')
+			.doc(uid)
+			.get();
+		return {
+			success: true,
+			score: score.data() ?? {},
+		};
+	},
+);
 
 export const recalculateWorldCupScoresOnResult = functions
 	.runWith({ timeoutSeconds: 540 })

@@ -18,25 +18,45 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
   bool _saving = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ref.read(worldCupControllerProvider).refreshMyScore();
+      } catch (_) {
+        // The live score stream remains available if an explicit refresh fails.
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final matchesAsync = ref.watch(worldCupMatchesProvider);
     final predictionAsync = ref.watch(worldCupPredictionProvider);
+    final scoreData = ref.watch(currentWorldCupScoreProvider).valueOrNull ?? {};
+    final matchBreakdown = Map<String, dynamic>.from(
+      scoreData['matchBreakdown'] as Map? ?? {},
+    );
     final permissions =
         ref.watch(currentPredictionPermissionsProvider).valueOrNull ?? const {};
     final blocked = permissions['blocked'] == true;
     final bypassLocks = permissions['bypassLocks'] == true;
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Mundial 2026'),
           bottom: const TabBar(
             isScrollable: true,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
             tabs: [
               Tab(text: 'Predicciones'),
               Tab(text: 'Grupos'),
               Tab(text: 'Eliminatorias'),
+              Tab(text: 'Mundial real'),
               Tab(text: 'Ranking'),
             ],
           ),
@@ -55,6 +75,9 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
               knockoutMatches,
               _drafts,
             );
+            final savedPickIds =
+                predictionAsync.valueOrNull?.picks.keys.toSet() ??
+                const <String>{};
             return TabBarView(
               children: [
                 _PredictionsTab(
@@ -67,6 +90,8 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
                     setState(() => _drafts[matchId] = draft);
                   },
                   onSaveMatch: _saveMatch,
+                  matchBreakdown: matchBreakdown,
+                  savedPickIds: savedPickIds,
                 ),
                 _GroupsStandingsTab(
                   standingsByGroup: bracket.groupStandings,
@@ -83,6 +108,12 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
                     setState(() => _drafts[matchId] = draft);
                   },
                   onSaveMatch: _saveMatch,
+                  matchBreakdown: matchBreakdown,
+                  savedPickIds: savedPickIds,
+                ),
+                _RealWorldCupTab(
+                  groupMatches: groupMatches,
+                  knockoutMatches: knockoutMatches,
                 ),
                 const _WorldCupRankingHub(),
               ],
@@ -149,6 +180,8 @@ class _PredictionsTab extends StatelessWidget {
   final bool bypassLocks;
   final void Function(String matchId, _DraftPick draft) onChanged;
   final Future<void> Function(String matchId, _DraftPick draft) onSaveMatch;
+  final Map<String, dynamic> matchBreakdown;
+  final Set<String> savedPickIds;
 
   const _PredictionsTab({
     required this.matches,
@@ -158,6 +191,8 @@ class _PredictionsTab extends StatelessWidget {
     required this.bypassLocks,
     required this.onChanged,
     required this.onSaveMatch,
+    required this.matchBreakdown,
+    required this.savedPickIds,
   });
 
   @override
@@ -205,8 +240,10 @@ class _PredictionsTab extends StatelessWidget {
                     locked: locked,
                     saving: saving,
                     allowWinnerSelector: false,
+                    canViewOthers: savedPickIds.contains(match.id),
                     onChanged: (draft) => onChanged(match.id, draft),
                     onSave: (draft) => onSaveMatch(match.id, draft),
+                    scoreBreakdown: matchBreakdown[match.id] as Map?,
                   ),
               ],
             ],
@@ -276,6 +313,8 @@ class _KnockoutTab extends StatelessWidget {
   final bool bypassLocks;
   final void Function(String matchId, _DraftPick draft) onChanged;
   final Future<void> Function(String matchId, _DraftPick draft) onSaveMatch;
+  final Map<String, dynamic> matchBreakdown;
+  final Set<String> savedPickIds;
 
   const _KnockoutTab({
     required this.matches,
@@ -286,6 +325,8 @@ class _KnockoutTab extends StatelessWidget {
     required this.bypassLocks,
     required this.onChanged,
     required this.onSaveMatch,
+    required this.matchBreakdown,
+    required this.savedPickIds,
   });
 
   @override
@@ -341,8 +382,10 @@ class _KnockoutTab extends StatelessWidget {
                     locked: locked,
                     saving: saving,
                     allowWinnerSelector: true,
+                    canViewOthers: savedPickIds.contains(match.id),
                     onChanged: (draft) => onChanged(match.id, draft),
                     onSave: (draft) => onSaveMatch(match.id, draft),
+                    scoreBreakdown: matchBreakdown[match.id] as Map?,
                   ),
               ],
             ],
@@ -361,6 +404,181 @@ class _KnockoutTab extends StatelessWidget {
     if (stage.contains('Final')) return 6;
     return 99;
   }
+}
+
+class _RealWorldCupTab extends StatelessWidget {
+  final List<WorldCupMatch> groupMatches;
+  final List<WorldCupMatch> knockoutMatches;
+
+  const _RealWorldCupTab({
+    required this.groupMatches,
+    required this.knockoutMatches,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final actualDrafts = <String, _DraftPick>{};
+    for (final match in [...groupMatches, ...knockoutMatches]) {
+      if (match.status != 'finished' ||
+          match.homeScore == null ||
+          match.awayScore == null) {
+        continue;
+      }
+      actualDrafts[match.id] = _DraftPick(
+        homeGuess: match.homeScore,
+        awayGuess: match.awayScore,
+        winnerKey: _actualWinnerKey(match),
+      );
+    }
+    final bracket = _BracketSimulation(
+      groupMatches,
+      knockoutMatches,
+      actualDrafts,
+    );
+    final groupEntries = bracket.groupStandings.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final stages = <String, List<WorldCupMatch>>{};
+    for (final match in knockoutMatches) {
+      stages.putIfAbsent(match.stageName, () => []).add(match);
+    }
+    final stageEntries = stages.entries.toList()
+      ..sort(
+        (a, b) =>
+            _worldCupStageOrder(a.key).compareTo(_worldCupStageOrder(b.key)),
+      );
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 28),
+      children: [
+        Text(
+          'Marcha real del Mundial',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tablas y cruces según los resultados oficiales.',
+          style: TextStyle(color: Colors.grey.shade700),
+        ),
+        const SizedBox(height: 16),
+        Text('Fase de grupos', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
+        for (final entry in groupEntries)
+          Card(
+            child: ExpansionTile(
+              initiallyExpanded: entry.key == 'Grupo A',
+              title: Text(entry.key),
+              children: [_StandingsTable(rows: entry.value)],
+            ),
+          ),
+        const SizedBox(height: 18),
+        Text('Eliminatorias', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
+        for (final entry in stageEntries) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+            child: Text(
+              entry.key.isEmpty ? 'Eliminatorias' : entry.key,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          for (final match in entry.value)
+            _RealWorldCupMatchCard(
+              match: match,
+              homeName: bracket.displayName(match, true),
+              awayName: bracket.displayName(match, false),
+            ),
+        ],
+      ],
+    );
+  }
+
+  String? _actualWinnerKey(WorldCupMatch match) {
+    if (match.homeScore! > match.awayScore!) return match.teamKey(true);
+    if (match.awayScore! > match.homeScore!) return match.teamKey(false);
+    if (match.winnerTeamId?.trim().isNotEmpty == true) {
+      return 'team:${match.winnerTeamId!.trim()}';
+    }
+    if (match.winnerTeamName?.trim().isNotEmpty == true) {
+      return 'name:${match.winnerTeamName!.trim()}';
+    }
+    return null;
+  }
+}
+
+class _RealWorldCupMatchCard extends StatelessWidget {
+  final WorldCupMatch match;
+  final String homeName;
+  final String awayName;
+
+  const _RealWorldCupMatchCard({
+    required this.match,
+    required this.homeName,
+    required this.awayName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasResult = match.homeScore != null && match.awayScore != null;
+    final center = hasResult
+        ? '${match.homeScore} - ${match.awayScore}'
+        : match.kickoff == null
+        ? 'A confirmar'
+        : DateFormat('d/M HH:mm').format(match.kickoff!.toLocal());
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                homeName,
+                textAlign: TextAlign.right,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Container(
+              width: 92,
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: hasResult ? Colors.green.shade50 : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                center,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                awayName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+int _worldCupStageOrder(String stage) {
+  final normalized = stage.toLowerCase();
+  if (normalized.contains('dieciseis') || normalized.contains('round of 32')) {
+    return 1;
+  }
+  if (normalized.contains('octav') || normalized.contains('round of 16')) {
+    return 2;
+  }
+  if (normalized.contains('cuart') || normalized.contains('quarter')) return 3;
+  if (normalized.contains('semi')) return 4;
+  if (normalized.contains('tercer') || normalized.contains('third')) return 5;
+  if (normalized.contains('final')) return 6;
+  return 99;
 }
 
 class _LockBanner extends StatelessWidget {
@@ -405,7 +623,7 @@ bool _isWorldCupLocked(List<WorldCupMatch> matches) {
   return firstKickoff != null && !DateTime.now().isBefore(firstKickoff);
 }
 
-class _WorldCupPredictionCard extends StatefulWidget {
+class _WorldCupPredictionCard extends ConsumerStatefulWidget {
   final WorldCupMatch match;
   final String homeName;
   final String awayName;
@@ -415,8 +633,10 @@ class _WorldCupPredictionCard extends StatefulWidget {
   final bool locked;
   final bool saving;
   final bool allowWinnerSelector;
+  final bool canViewOthers;
   final ValueChanged<_DraftPick> onChanged;
   final ValueChanged<_DraftPick> onSave;
+  final Map? scoreBreakdown;
 
   const _WorldCupPredictionCard({
     required this.match,
@@ -428,19 +648,26 @@ class _WorldCupPredictionCard extends StatefulWidget {
     required this.locked,
     required this.saving,
     required this.allowWinnerSelector,
+    required this.canViewOthers,
     required this.onChanged,
     required this.onSave,
+    this.scoreBreakdown,
   });
 
   @override
-  State<_WorldCupPredictionCard> createState() =>
+  ConsumerState<_WorldCupPredictionCard> createState() =>
       _WorldCupPredictionCardState();
 }
 
-class _WorldCupPredictionCardState extends State<_WorldCupPredictionCard> {
+class _WorldCupPredictionCardState
+    extends ConsumerState<_WorldCupPredictionCard> {
   final _homeCtrl = TextEditingController();
   final _awayCtrl = TextEditingController();
   String? _winnerKey;
+  bool _othersExpanded = false;
+  bool _othersLoading = false;
+  String? _othersError;
+  List<Map<String, dynamic>>? _otherPredictions;
 
   @override
   void initState() {
@@ -489,6 +716,27 @@ class _WorldCupPredictionCardState extends State<_WorldCupPredictionCard> {
   void _notifyChanged() {
     final draft = _currentDraft();
     if (draft != null) widget.onChanged(draft);
+  }
+
+  Future<void> _toggleOtherPredictions() async {
+    setState(() => _othersExpanded = !_othersExpanded);
+    if (!_othersExpanded || _otherPredictions != null || _othersLoading) return;
+    setState(() {
+      _othersLoading = true;
+      _othersError = null;
+    });
+    try {
+      final rows = await ref
+          .read(worldCupControllerProvider)
+          .otherPredictions(widget.match.id);
+      if (mounted) setState(() => _otherPredictions = rows);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _othersError = 'No se pudieron cargar las predicciones');
+      }
+    } finally {
+      if (mounted) setState(() => _othersLoading = false);
+    }
   }
 
   @override
@@ -606,6 +854,71 @@ class _WorldCupPredictionCardState extends State<_WorldCupPredictionCard> {
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
               ),
             ],
+            if (widget.match.status == 'finished' && widget.draft != null) ...[
+              const Divider(height: 18),
+              _WorldCupResultSummary(
+                match: widget.match,
+                draft: widget.draft!,
+                breakdown: widget.scoreBreakdown,
+              ),
+            ],
+            if (widget.canViewOthers) ...[
+              const Divider(height: 18),
+              InkWell(
+                onTap: _toggleOtherPredictions,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.people_outline, size: 18),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text('Predicciones de otros usuarios'),
+                      ),
+                      Icon(
+                        _othersExpanded ? Icons.expand_less : Icons.expand_more,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_othersExpanded) ...[
+                const SizedBox(height: 8),
+                if (_othersLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (_othersError != null)
+                  Text(
+                    _othersError!,
+                    style: TextStyle(color: Colors.red.shade700),
+                  )
+                else if (_otherPredictions?.isEmpty ?? true)
+                  Text(
+                    'Todavia no hay otras predicciones.',
+                    style: TextStyle(color: Colors.grey.shade700),
+                  )
+                else
+                  for (final prediction in _otherPredictions!)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              prediction['displayName'] as String? ?? 'Anonimo',
+                            ),
+                          ),
+                          Text(
+                            '${prediction['homeGuess']} - ${prediction['awayGuess']}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ],
           ],
         ),
       ),
@@ -637,6 +950,56 @@ class _WorldCupPredictionCardState extends State<_WorldCupPredictionCard> {
         ),
         onChanged: (_) => _notifyChanged(),
       ),
+    );
+  }
+}
+
+class _WorldCupResultSummary extends StatelessWidget {
+  final WorldCupMatch match;
+  final _DraftPick draft;
+  final Map? breakdown;
+
+  const _WorldCupResultSummary({
+    required this.match,
+    required this.draft,
+    required this.breakdown,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final points = breakdown?['points'] as int?;
+    final matchupCorrect = breakdown?['matchupCorrect'] as bool? ?? true;
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 14,
+      runSpacing: 6,
+      children: [
+        Text(
+          'Predicción: ${draft.homeGuess} - ${draft.awayGuess}',
+          style: const TextStyle(fontSize: 12),
+        ),
+        Text(
+          'Resultado: ${match.homeScore ?? '-'} - ${match.awayScore ?? '-'}',
+          style: const TextStyle(fontSize: 12),
+        ),
+        Text(
+          points == null ? 'Puntaje: recalculando' : 'Puntaje: $points pts',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: points == null
+                ? Colors.grey.shade700
+                : points > 0
+                ? Colors.green.shade700
+                : Colors.red.shade700,
+          ),
+        ),
+        if (!matchupCorrect)
+          const Text(
+            'Cruce distinto al previsto',
+            style: TextStyle(fontSize: 11, color: Colors.orange),
+          ),
+      ],
     );
   }
 }

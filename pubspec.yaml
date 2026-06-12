@@ -2,7 +2,7 @@ name: footrix
 description:
   'Predice partidos de fútbol, competí con amigos y escala en el ranking.'
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.3.0+5
 
 environment:
   sdk: ^3.11.5

@@ -55,6 +55,9 @@ class GroupDetailScreen extends ConsumerWidget {
             ),
           ],
           bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
             tabs: [
               Tab(text: 'Ranking'),
               Tab(text: 'Predicciones'),

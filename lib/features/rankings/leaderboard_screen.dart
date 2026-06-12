@@ -58,6 +58,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               ),
           ],
           bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
             tabs: [
               Tab(text: 'Puntaje'),
               Tab(text: 'Promedio'),
