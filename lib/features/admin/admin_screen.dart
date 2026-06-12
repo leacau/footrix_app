@@ -81,6 +81,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             Tab(text: l10n.users),
             Tab(text: l10n.createMatch),
@@ -336,78 +338,71 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   }
 
   Widget _buildCreateMatchTab(AppLocalizations l10n) {
-    return Padding(
+    return ListView(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _homeCtrl,
-            decoration: InputDecoration(labelText: l10n.homeTeam),
-          ),
-          TextField(
-            controller: _awayCtrl,
-            decoration: InputDecoration(labelText: l10n.awayTeam),
-          ),
-          TextField(
-            controller: _phaseCtrl,
-            decoration: InputDecoration(labelText: l10n.phaseExample),
-          ),
-          TextField(
-            controller: _dateCtrl,
-            decoration: InputDecoration(labelText: l10n.dateTimeFormat),
-            keyboardType: TextInputType.datetime,
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: _lockHours,
-            decoration: InputDecoration(labelText: l10n.lockPredictionsBefore),
-            items: [0, 1, 2, 4, 6, 12, 24, 48].map((h) {
-              return DropdownMenuItem(
-                value: h,
-                child: Text(l10n.hoursBefore(h)),
-              );
-            }).toList(),
-            onChanged: (val) {
-              if (val != null) setState(() => _lockHours = val);
-            },
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final date = DateFormat(
-                  'yyyy-MM-dd HH:mm',
-                ).parse(_dateCtrl.text);
-                await ref
-                    .read(adminControllerProvider)
-                    .createMatch(
-                      homeTeam: _homeCtrl.text,
-                      awayTeam: _awayCtrl.text,
-                      phase: _phaseCtrl.text,
-                      kickoff: date,
-                      lockHoursBefore: _lockHours,
-                    );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(l10n.matchCreated)));
-                  _homeCtrl.clear();
-                  _awayCtrl.clear();
-                  _phaseCtrl.clear();
-                  _dateCtrl.clear();
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(l10n.dateFormatError)));
-                }
+      children: [
+        TextField(
+          controller: _homeCtrl,
+          decoration: InputDecoration(labelText: l10n.homeTeam),
+        ),
+        TextField(
+          controller: _awayCtrl,
+          decoration: InputDecoration(labelText: l10n.awayTeam),
+        ),
+        TextField(
+          controller: _phaseCtrl,
+          decoration: InputDecoration(labelText: l10n.phaseExample),
+        ),
+        TextField(
+          controller: _dateCtrl,
+          decoration: InputDecoration(labelText: l10n.dateTimeFormat),
+          keyboardType: TextInputType.datetime,
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: _lockHours,
+          decoration: InputDecoration(labelText: l10n.lockPredictionsBefore),
+          items: [0, 1, 2, 4, 6, 12, 24, 48].map((h) {
+            return DropdownMenuItem(value: h, child: Text(l10n.hoursBefore(h)));
+          }).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _lockHours = val);
+          },
+        ),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              final date = DateFormat('yyyy-MM-dd HH:mm').parse(_dateCtrl.text);
+              await ref
+                  .read(adminControllerProvider)
+                  .createMatch(
+                    homeTeam: _homeCtrl.text,
+                    awayTeam: _awayCtrl.text,
+                    phase: _phaseCtrl.text,
+                    kickoff: date,
+                    lockHoursBefore: _lockHours,
+                  );
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(l10n.matchCreated)));
+                _homeCtrl.clear();
+                _awayCtrl.clear();
+                _phaseCtrl.clear();
+                _dateCtrl.clear();
               }
-            },
-            child: Text(l10n.createMatch),
-          ),
-        ],
-      ),
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(l10n.dateFormatError)));
+              }
+            }
+          },
+          child: Text(l10n.createMatch),
+        ),
+      ],
     );
   }
 
@@ -420,20 +415,22 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.finishMatch),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: homeCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: l10n.homeGoals),
-            ),
-            TextField(
-              controller: awayCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: l10n.awayGoals),
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: homeCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: l10n.homeGoals),
+              ),
+              TextField(
+                controller: awayCtrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: l10n.awayGoals),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(

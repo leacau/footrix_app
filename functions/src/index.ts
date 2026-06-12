@@ -25,6 +25,10 @@ export {
 export { remindAnonymousUsersToCompleteProfile } from './anonymousProfileReminder';
 export { getRankingPredictionCounts } from './rankingActions';
 export {
+	recalculateWorldCupScores,
+	saveWorldCupPredictions,
+} from './worldCupActions';
+export {
 	adminCreateMatch,
 	adminFinishMatch,
 	adminRepairUserDocuments,

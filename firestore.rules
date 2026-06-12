@@ -77,6 +77,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /world_cup_predictions/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+
+    match /world_cup_scores/{userId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /leagues/{leagueId} {
       allow read: if signedIn();
       allow write: if false;

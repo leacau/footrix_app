@@ -9,6 +9,15 @@ export const validatePredictionEdit = functions.https.onCall(
 
 		const { matchId, homeGuess, awayGuess } = data;
 		const uid = context.auth.uid;
+		const userDoc = await admin.firestore().collection('users').doc(uid).get();
+		const permissions = userDoc.data()?.predictionPermissions;
+		if (permissions?.blocked === true) {
+			throw new functions.https.HttpsError(
+				'permission-denied',
+				'Tu usuario no tiene habilitadas las predicciones',
+			);
+		}
+		const bypassLocks = permissions?.bypassLocks === true;
 
 		if (typeof matchId !== 'string' || matchId.trim().length === 0) {
 			throw new functions.https.HttpsError(
@@ -46,7 +55,7 @@ export const validatePredictionEdit = functions.https.onCall(
 		}
 
 		const match = matchDoc.data()!;
-		if (match.status !== 'scheduled') {
+		if (!bypassLocks && match.status !== 'scheduled') {
 			throw new functions.https.HttpsError(
 				'failed-precondition',
 				'El partido ya no acepta predicciones',
@@ -54,14 +63,14 @@ export const validatePredictionEdit = functions.https.onCall(
 		}
 
 		const kickoff = match.kickoff as admin.firestore.Timestamp | undefined;
-		if (!kickoff) {
+		if (!bypassLocks && !kickoff) {
 			throw new functions.https.HttpsError(
 				'failed-precondition',
 				'El partido todavia no tiene fecha confirmada',
 			);
 		}
 
-		const kickoffTime = kickoff.toMillis();
+		const kickoffTime = kickoff?.toMillis() ?? Date.now();
 		const settingsDoc = await admin
 			.firestore()
 			.collection('app_config')
@@ -76,7 +85,7 @@ export const validatePredictionEdit = functions.https.onCall(
 					: 12;
 		const lockTime = kickoffTime - lockHours * 60 * 60 * 1000;
 
-		if (Date.now() >= lockTime) {
+		if (!bypassLocks && Date.now() >= lockTime) {
 			throw new functions.https.HttpsError(
 				'failed-precondition',
 				`Cerrado ${lockHours}hs antes`,

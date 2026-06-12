@@ -13,6 +13,7 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/trivia/trivia_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/admin/admin_screen.dart';
+import '../../features/worldcup/world_cup_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -72,6 +73,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: '/rankings', builder: (_, _) => const LeaderboardScreen()),
+      GoRoute(path: '/world-cup', builder: (_, _) => const WorldCupScreen()),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/groups', builder: (_, _) => const GroupsScreen()),
       GoRoute(

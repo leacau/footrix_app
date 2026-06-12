@@ -5,20 +5,35 @@ import { FIFA_MATCHES_BASE_URL, FIFA_USER_AGENT } from './config';
 type JsonRecord = Record<string, unknown>;
 
 type FifaTeam = JsonRecord & {
+	IdTeam?: unknown;
 	TeamName?: unknown;
 	Score?: unknown;
 	PictureUrl?: unknown;
 };
 
 type FifaMatch = JsonRecord & {
+	IdCompetition?: unknown;
+	IdSeason?: unknown;
+	IdStage?: unknown;
+	IdGroup?: unknown;
 	IdMatch?: unknown;
+	MatchNumber?: unknown;
+	MatchDay?: unknown;
 	Date?: unknown;
 	Home?: FifaTeam;
 	Away?: FifaTeam;
+	HomeTeamScore?: unknown;
+	AwayTeamScore?: unknown;
+	HomeTeamPenaltyScore?: unknown;
+	AwayTeamPenaltyScore?: unknown;
 	MatchStatus?: unknown;
 	CompetitionName?: unknown;
 	GroupName?: unknown;
 	StageName?: unknown;
+	PlaceHolderA?: unknown;
+	PlaceHolderB?: unknown;
+	Winner?: unknown;
+	ResultType?: unknown;
 	Stadium?: JsonRecord;
 };
 
@@ -203,6 +218,21 @@ function parseScore(value: unknown): number | null {
 	return null;
 }
 
+function parseNumber(value: unknown): number | null {
+	if (typeof value === 'number' && Number.isFinite(value)) return value;
+	if (typeof value === 'string' && value.trim() !== '') {
+		const parsed = Number.parseInt(value, 10);
+		return Number.isNaN(parsed) ? null : parsed;
+	}
+	return null;
+}
+
+function cleanString(value: unknown): string | null {
+	if (typeof value !== 'string') return null;
+	const trimmed = value.trim();
+	return trimmed === '' ? null : trimmed;
+}
+
 function fifaPictureUrl(value: unknown): string | null {
 	if (typeof value !== 'string' || value.trim() === '') return null;
 	return value
@@ -278,6 +308,14 @@ function normalizedLeagueId(name: string): string {
 		.slice(0, 120);
 }
 
+function isWorldCup2026(competitionName: string, kickoff: Date): boolean {
+	const normalized = normalizedLeagueId(competitionName);
+	return (
+		normalized === 'copa-mundial-de-la-fifa' &&
+		kickoff.getUTCFullYear() === 2026
+	);
+}
+
 function matchDate(value: unknown): Date | null {
 	if (typeof value !== 'string') return null;
 	const date = new Date(value);
@@ -300,24 +338,41 @@ export async function syncFifaMatches(
 		const kickoff = matchDate(match.Date);
 		const home = isRecord(match.Home) ? match.Home : null;
 		const away = isRecord(match.Away) ? match.Away : null;
-		if (id == null || !kickoff || !home || !away) continue;
-
-		const homeTeam = localizedText(home.TeamName);
-		const awayTeam = localizedText(away.TeamName);
-		if (!homeTeam || !awayTeam) continue;
+		if (id == null || !kickoff) continue;
 
 		const competitionName = localizedText(match.CompetitionName);
+		const isWorldCup = competitionName
+			? isWorldCup2026(competitionName, kickoff)
+			: false;
+		const placeHolderA = cleanString(match.PlaceHolderA);
+		const placeHolderB = cleanString(match.PlaceHolderB);
+		if ((!home || !away) && !isWorldCup) continue;
+
+		const homeTeam = home
+			? localizedText(home.TeamName)
+			: (placeHolderA ?? 'Por definir');
+		const awayTeam = away
+			? localizedText(away.TeamName)
+			: (placeHolderB ?? 'Por definir');
+		if (!homeTeam || !awayTeam) continue;
+
+		const stageName = localizedText(match.StageName);
+		const groupName = localizedText(match.GroupName);
 		const phase =
-			localizedText(match.GroupName) || localizedText(match.StageName);
+			groupName || stageName;
 		const leagueId = competitionName
 			? normalizedLeagueId(competitionName)
 			: 'fifa';
-		const homeScore = parseScore(home.Score);
-		const awayScore = parseScore(away.Score);
+		const homeScore = parseScore(home?.Score ?? match.HomeTeamScore);
+		const awayScore = parseScore(away?.Score ?? match.AwayTeamScore);
 		const status = mapFifaStatus(match.MatchStatus, homeScore, awayScore);
 		const stadium = isRecord(match.Stadium) ? match.Stadium : null;
 		const venue = stadium ? localizedText(stadium.Name) : null;
 		const venueCity = stadium ? localizedText(stadium.CityName) : null;
+		const matchNumber = parseNumber(match.MatchNumber);
+		const matchDay = parseNumber(match.MatchDay);
+		const resultType = parseNumber(match.ResultType);
+		const winner = isRecord(match.Winner) ? match.Winner : null;
 
 		writer.set(
 			db.collection('matches').doc(`fifa_${String(id)}`),
@@ -333,12 +388,30 @@ export async function syncFifaMatches(
 				leagueId,
 				apiSource: 'fifa',
 				apiMatchId: String(id),
+				idCompetition: cleanString(match.IdCompetition),
+				idSeason: cleanString(match.IdSeason),
+				idStage: cleanString(match.IdStage),
+				idGroup: cleanString(match.IdGroup),
+				matchNumber,
+				matchDay,
+				stageName: stageName || null,
+				groupName: groupName || null,
+				placeHolderA,
+				placeHolderB,
+				worldCup2026: isWorldCup,
 				competitionName: competitionName || null,
 				competitionEmblem: null,
 				venue: venue || null,
 				venueCity: venueCity || null,
-				homeTeamLogo: fifaPictureUrl(home.PictureUrl),
-				awayTeamLogo: fifaPictureUrl(away.PictureUrl),
+				homeTeamId: cleanString(home?.IdTeam),
+				awayTeamId: cleanString(away?.IdTeam),
+				homeTeamLogo: fifaPictureUrl(home?.PictureUrl),
+				awayTeamLogo: fifaPictureUrl(away?.PictureUrl),
+				homePenaltyScore: parseScore(match.HomeTeamPenaltyScore),
+				awayPenaltyScore: parseScore(match.AwayTeamPenaltyScore),
+				resultType,
+				winnerTeamId: cleanString(winner?.IdTeam),
+				winnerTeamName: winner ? localizedText(winner.TeamName) : null,
 				updatedAt: admin.firestore.FieldValue.serverTimestamp(),
 				syncedAt: admin.firestore.FieldValue.serverTimestamp(),
 				...(status === 'finished'

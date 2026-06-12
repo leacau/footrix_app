@@ -115,6 +115,13 @@ class HomeScreen extends ConsumerWidget {
                   onTap: () => context.push('/trivia'),
                 ),
                 _NavCard(
+                  icon: Icons.public,
+                  title: 'Mundial 2026',
+                  subtitle: 'Prediccion completa',
+                  color: Colors.indigo,
+                  onTap: () => context.push('/world-cup'),
+                ),
+                _NavCard(
                   icon: Icons.group,
                   title: l10n.groups,
                   subtitle: l10n.groupsSubtitle,
