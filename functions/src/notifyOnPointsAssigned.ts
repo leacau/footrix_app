@@ -15,6 +15,7 @@ export const notifyOnPointsAssigned = functions.firestore
 		const wasAlreadyGraded = before.status === 'graded';
 		const pointsChanged = beforePoints !== afterPoints;
 
+		if (after.suppressPointsNotification === true) return null;
 		if (after.status !== 'graded' || (wasAlreadyGraded && !pointsChanged)) {
 			return null;
 		}

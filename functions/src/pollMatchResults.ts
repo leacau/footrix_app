@@ -20,7 +20,7 @@ function endOfUtcDay(date: Date): Date {
 }
 
 export const pollMatchResults = functions.pubsub
-	.schedule('every 30 minutes')
+	.schedule('every 5 minutes')
 	.timeZone('America/Argentina/Buenos_Aires')
 	.onRun(async () => {
 		const today = startOfUtcDay(new Date());

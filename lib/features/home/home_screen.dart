@@ -108,13 +108,6 @@ class HomeScreen extends ConsumerWidget {
                   onTap: () => context.push('/fixture'),
                 ),
                 _NavCard(
-                  icon: Icons.quiz,
-                  title: l10n.trivia,
-                  subtitle: l10n.triviaSubtitle,
-                  color: Colors.purple,
-                  onTap: () => context.push('/trivia'),
-                ),
-                _NavCard(
                   icon: Icons.public,
                   title: 'Mundial 2026',
                   subtitle: 'Prediccion completa',
@@ -160,29 +153,7 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.myStats,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _statChip(l10n.points, user != null ? '...' : '0'),
-                        _statChip(l10n.trivia, '0'),
-                        _statChip(l10n.streak, '0'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _HomeStats(userId: user?.uid, title: l10n.myStats),
           ],
         ),
       ),
@@ -191,7 +162,6 @@ class HomeScreen extends ConsumerWidget {
         onDestinationSelected: (index) {
           final routes = [
             '/fixture',
-            '/trivia',
             '/groups',
             '/rankings',
             '/profile',
@@ -204,10 +174,6 @@ class HomeScreen extends ConsumerWidget {
           NavigationDestination(
             icon: const Icon(Icons.sports_soccer),
             label: l10n.fixture,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.quiz),
-            label: l10n.trivia,
           ),
           NavigationDestination(
             icon: const Icon(Icons.group),
@@ -309,6 +275,66 @@ class HomeScreen extends ConsumerWidget {
         context.go('/profile');
       }
     });
+  }
+}
+
+class _HomeStats extends StatelessWidget {
+  final String? userId;
+  final String title;
+
+  const _HomeStats({required this.userId, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = userId;
+    if (uid == null) return const SizedBox.shrink();
+    final firestore = FirebaseFirestore.instance;
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: firestore.collection('users').doc(uid).snapshots(),
+      builder: (context, userSnapshot) {
+        final totalPoints =
+            userSnapshot.data?.data()?['totalPoints'] as int? ?? 0;
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: firestore
+              .collection('predictions')
+              .where('userId', isEqualTo: uid)
+              .snapshots(),
+          builder: (context, predictionsSnapshot) {
+            final predictionCount = predictionsSnapshot.data?.size ?? 0;
+            return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: firestore.collection('world_cup_scores').doc(uid).snapshots(),
+              builder: (context, worldCupSnapshot) {
+                final worldCupPoints =
+                    worldCupSnapshot.data?.data()?['totalPoints'] as int? ?? 0;
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _statChip('Puntos', '$totalPoints'),
+                            _statChip('Predicciones', '$predictionCount'),
+                            _statChip('Mundial', '$worldCupPoints'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
 }
 

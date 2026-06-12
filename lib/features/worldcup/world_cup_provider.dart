@@ -155,6 +155,21 @@ final worldCupPredictionProvider = StreamProvider<WorldCupPredictionDoc>((ref) {
       .map(WorldCupPredictionDoc.fromFirestore);
 });
 
+final currentPredictionPermissionsProvider =
+    StreamProvider<Map<String, dynamic>>((ref) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return Stream.value(const {});
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots()
+          .map(
+            (doc) => Map<String, dynamic>.from(
+              doc.data()?['predictionPermissions'] as Map? ?? {},
+            ),
+          );
+    });
+
 final worldCupScoresProvider = StreamProvider<List<Map<String, dynamic>>>((
   ref,
 ) {

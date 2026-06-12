@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../leagues/leagues_provider.dart';
@@ -24,10 +23,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _editing = false;
 
   int _totalPoints = 0;
-  int _triviaPoints = 0;
-  int _triviaStreak = 0;
-  int _triviaBestStreak = 0;
-  int _triviaAnswered = 0;
   Set<String> _selectedLeagueIds = {};
   bool _savingLeagues = false;
 
@@ -63,10 +58,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _provinceCtrl.text = data['province'] ?? '';
         _cityCtrl.text = data['city'] ?? '';
         _totalPoints = data['totalPoints'] as int? ?? 0;
-        _triviaPoints = data['triviaPoints'] as int? ?? 0;
-        _triviaStreak = data['triviaStreak'] as int? ?? 0;
-        _triviaBestStreak = data['triviaBestStreak'] as int? ?? 0;
-        _triviaAnswered = data['triviaAnswered'] as int? ?? 0;
         _selectedLeagueIds =
             (data['selectedLeagueIds'] as List<dynamic>? ?? const [])
                 .whereType<String>()
@@ -221,52 +212,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         l10n.totalPoints,
                         '$_totalPoints',
                         Icons.emoji_events,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            l10n.trivia,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              if (context.mounted) context.push('/trivia');
-                            },
-                            child: Text(l10n.play),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _statRow(l10n.triviaPoints, '$_triviaPoints', Icons.star),
-                      _statRow(
-                        l10n.currentStreak,
-                        '$_triviaStreak',
-                        Icons.local_fire_department,
-                      ),
-                      _statRow(
-                        l10n.bestStreak,
-                        '$_triviaBestStreak',
-                        Icons.emoji_events,
-                      ),
-                      _statRow(
-                        l10n.answeredQuestions,
-                        '$_triviaAnswered',
-                        Icons.quiz,
                       ),
                     ],
                   ),

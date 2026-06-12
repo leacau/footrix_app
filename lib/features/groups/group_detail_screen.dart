@@ -19,7 +19,7 @@ class GroupDetailScreen extends ConsumerWidget {
     final rankingAsync = ref.watch(
       rankingProvider((
         scope: RankingScope.global,
-        type: RankingType.combined,
+        type: RankingType.predictions,
         groupId: groupId,
         filter: null,
         leagueId: leagueIds,

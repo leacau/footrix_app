@@ -15,22 +15,6 @@
         { "fieldPath": "active", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "trivia_answers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "answeredAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "trivia_answers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "answeredAt", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []

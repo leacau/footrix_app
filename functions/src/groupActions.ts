@@ -76,10 +76,6 @@ function userProfilePatch(
 		patch.photoURL = token.picture;
 	}
 	if (typeof existing?.totalPoints !== 'number') patch.totalPoints = 0;
-	if (typeof existing?.triviaPoints !== 'number') patch.triviaPoints = 0;
-	if (typeof existing?.triviaStreak !== 'number') patch.triviaStreak = 0;
-	if (typeof existing?.triviaBestStreak !== 'number') patch.triviaBestStreak = 0;
-	if (typeof existing?.triviaAnswered !== 'number') patch.triviaAnswered = 0;
 	if (!('country' in (existing ?? {}))) patch.country = null;
 	if (!('province' in (existing ?? {}))) patch.province = null;
 	if (!('city' in (existing ?? {}))) patch.city = null;

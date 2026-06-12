@@ -53,7 +53,13 @@ class _MatchCardState extends State<MatchCard> {
     super.dispose();
   }
 
-  bool _canEdit({int? lockHoursOverride}) {
+  bool _canEdit({
+    int? lockHoursOverride,
+    bool bypassLocks = false,
+    bool blocked = false,
+  }) {
+    if (blocked) return false;
+    if (bypassLocks) return true;
     final kickoff = widget.match.kickoff;
     if (kickoff == null) return true;
     final lockHours = lockHoursOverride ?? widget.match.lockHoursBefore ?? 0;
@@ -73,11 +79,15 @@ class _MatchCardState extends State<MatchCard> {
     );
   }
 
-  Future<void> _savePrediction() async {
+  Future<void> _savePrediction({
+    bool bypassLocks = false,
+    bool blocked = false,
+  }) async {
     final l10n = AppLocalizations.of(context)!;
     if (_homeCtrl.text.isEmpty || _awayCtrl.text.isEmpty) return;
 
-    if (!_canEdit() && widget.existingPrediction != null) {
+    if (!_canEdit(bypassLocks: bypassLocks, blocked: blocked) &&
+        widget.existingPrediction != null) {
       _showMessage(l10n.closedBefore);
       return;
     }
@@ -115,26 +125,50 @@ class _MatchCardState extends State<MatchCard> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('app_config')
-          .doc('predictions')
-          .snapshots(),
-      builder: (context, snapshot) {
-        final settingsLockHours = snapshot.data?.data()?['lockHoursBefore'];
-        return _buildCard(
-          context,
-          settingsLockHours is int ? settingsLockHours : null,
+      stream: uid == null
+          ? null
+          : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+      builder: (context, userSnapshot) {
+        final permissions = Map<String, dynamic>.from(
+          userSnapshot.data?.data()?['predictionPermissions'] as Map? ?? {},
+        );
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('app_config')
+              .doc('predictions')
+              .snapshots(),
+          builder: (context, snapshot) {
+            final settingsLockHours = snapshot.data?.data()?['lockHoursBefore'];
+            return _buildCard(
+              context,
+              settingsLockHours is int ? settingsLockHours : null,
+              bypassLocks: permissions['bypassLocks'] == true,
+              blocked: permissions['blocked'] == true,
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildCard(BuildContext context, int? lockHoursOverride) {
+  Widget _buildCard(
+    BuildContext context,
+    int? lockHoursOverride, {
+    required bool bypassLocks,
+    required bool blocked,
+  }) {
     final l10n = AppLocalizations.of(context)!;
     final isLocked =
-        widget.match.isLocked ||
-        !_canEdit(lockHoursOverride: lockHoursOverride);
+        blocked ||
+        (!bypassLocks &&
+            (widget.match.isLocked ||
+                !_canEdit(
+                  lockHoursOverride: lockHoursOverride,
+                  bypassLocks: bypassLocks,
+                  blocked: blocked,
+                )));
     final isFinished = widget.match.status == MatchStatus.finished;
     final hasPrediction = widget.existingPrediction != null;
 
@@ -186,7 +220,13 @@ class _MatchCardState extends State<MatchCard> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: _buildPredictionArea(l10n, isLocked, hasPrediction),
+                child: _buildPredictionArea(
+                  l10n,
+                  isLocked,
+                  hasPrediction,
+                  bypassLocks: bypassLocks,
+                  blocked: blocked,
+                ),
               ),
             ],
             if (_venueLabel() != null) ...[
@@ -226,8 +266,10 @@ class _MatchCardState extends State<MatchCard> {
   Widget _buildPredictionArea(
     AppLocalizations l10n,
     bool isLocked,
-    bool hasPrediction,
-  ) {
+    bool hasPrediction, {
+    required bool bypassLocks,
+    required bool blocked,
+  }) {
     if (hasPrediction) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -281,7 +323,12 @@ class _MatchCardState extends State<MatchCard> {
                 : const Icon(Icons.check_circle, color: Colors.blue),
             iconSize: 20,
             padding: EdgeInsets.zero,
-            onPressed: _isLoading ? null : _savePrediction,
+            onPressed: _isLoading
+                ? null
+                : () => _savePrediction(
+                    bypassLocks: bypassLocks,
+                    blocked: blocked,
+                  ),
           ),
         ],
       );

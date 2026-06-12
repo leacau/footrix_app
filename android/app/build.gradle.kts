@@ -25,7 +25,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = 35
         versionCode = 3
-        versionName = "2.0"
+        versionName = "2.1"
         multiDexEnabled = true
         missingDimensionStrategy("default", "staging")
     }

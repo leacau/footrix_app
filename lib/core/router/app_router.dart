@@ -10,7 +10,6 @@ import '../../features/groups/group_invite_screen.dart';
 import '../../features/groups/groups_screen.dart';
 import '../../features/notifications/notification_handler.dart';
 import '../../features/splash/splash_screen.dart';
-import '../../features/trivia/trivia_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/admin/admin_screen.dart';
 import '../../features/worldcup/world_cup_screen.dart';
@@ -83,7 +82,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return GroupInviteScreen(code: code);
         },
       ),
-      GoRoute(path: '/trivia', builder: (_, _) => const TriviaScreen()),
     ],
 
     // ✅ Removido RouteObserver problemático

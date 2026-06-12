@@ -215,12 +215,6 @@ abstract class AppLocalizations {
   /// **'Fixture'**
   String get fixture;
 
-  /// No description provided for @trivia.
-  ///
-  /// In en, this message translates to:
-  /// **'Trivia'**
-  String get trivia;
-
   /// No description provided for @groups.
   ///
   /// In en, this message translates to:
@@ -317,12 +311,6 @@ abstract class AppLocalizations {
   /// **'Join'**
   String get join;
 
-  /// No description provided for @play.
-  ///
-  /// In en, this message translates to:
-  /// **'Play'**
-  String get play;
-
   /// No description provided for @all.
   ///
   /// In en, this message translates to:
@@ -383,12 +371,6 @@ abstract class AppLocalizations {
   /// **'Predict matches'**
   String get fixtureSubtitle;
 
-  /// No description provided for @triviaSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Quick questions'**
-  String get triviaSubtitle;
-
   /// No description provided for @groupsSubtitle.
   ///
   /// In en, this message translates to:
@@ -437,12 +419,6 @@ abstract class AppLocalizations {
   /// **'Points'**
   String get points;
 
-  /// No description provided for @streak.
-  ///
-  /// In en, this message translates to:
-  /// **'Streak'**
-  String get streak;
-
   /// No description provided for @leaguesToPlay.
   ///
   /// In en, this message translates to:
@@ -484,30 +460,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Total points'**
   String get totalPoints;
-
-  /// No description provided for @triviaPoints.
-  ///
-  /// In en, this message translates to:
-  /// **'Trivia points'**
-  String get triviaPoints;
-
-  /// No description provided for @currentStreak.
-  ///
-  /// In en, this message translates to:
-  /// **'Current streak'**
-  String get currentStreak;
-
-  /// No description provided for @bestStreak.
-  ///
-  /// In en, this message translates to:
-  /// **'Best streak'**
-  String get bestStreak;
-
-  /// No description provided for @answeredQuestions.
-  ///
-  /// In en, this message translates to:
-  /// **'Answered questions'**
-  String get answeredQuestions;
 
   /// No description provided for @location.
   ///
@@ -671,18 +623,6 @@ abstract class AppLocalizations {
   /// **'Clear filters'**
   String get clearFilters;
 
-  /// No description provided for @type.
-  ///
-  /// In en, this message translates to:
-  /// **'Type:'**
-  String get type;
-
-  /// No description provided for @combined.
-  ///
-  /// In en, this message translates to:
-  /// **'Combined'**
-  String get combined;
-
   /// No description provided for @worldwide.
   ///
   /// In en, this message translates to:
@@ -791,18 +731,6 @@ abstract class AppLocalizations {
   /// **'Use 0 to accept predictions until kickoff.'**
   String get predictionLockHelper;
 
-  /// No description provided for @triviaSettings.
-  ///
-  /// In en, this message translates to:
-  /// **'Trivia'**
-  String get triviaSettings;
-
-  /// No description provided for @triviaDailyLimitLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Questions per user per day'**
-  String get triviaDailyLimitLabel;
-
   /// No description provided for @saveSettings.
   ///
   /// In en, this message translates to:
@@ -898,54 +826,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No schedule'**
   String get noSchedule;
-
-  /// No description provided for @footballTrivia.
-  ///
-  /// In en, this message translates to:
-  /// **'Football Trivia'**
-  String get footballTrivia;
-
-  /// No description provided for @noQuestionsAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'No questions available'**
-  String get noQuestionsAvailable;
-
-  /// No description provided for @secondsLeft.
-  ///
-  /// In en, this message translates to:
-  /// **'{seconds} seconds'**
-  String secondsLeft(int seconds);
-
-  /// No description provided for @timeUp.
-  ///
-  /// In en, this message translates to:
-  /// **'Time up'**
-  String get timeUp;
-
-  /// No description provided for @alreadyAnsweredQuestion.
-  ///
-  /// In en, this message translates to:
-  /// **'You had already answered this question'**
-  String get alreadyAnsweredQuestion;
-
-  /// No description provided for @correctPoints.
-  ///
-  /// In en, this message translates to:
-  /// **'Correct: +{points} pts'**
-  String correctPoints(int points);
-
-  /// No description provided for @incorrect.
-  ///
-  /// In en, this message translates to:
-  /// **'Incorrect'**
-  String get incorrect;
-
-  /// No description provided for @nextQuestion.
-  ///
-  /// In en, this message translates to:
-  /// **'Next question'**
-  String get nextQuestion;
 
   /// No description provided for @moreOptions.
   ///

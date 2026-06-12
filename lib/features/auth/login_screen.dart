@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../l10n/app_localizations.dart';
 import '../groups/pending_group_invite.dart';
 import 'auth_provider.dart';
+import 'biometric_auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -21,6 +22,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _nameCtrl = TextEditingController();
   bool _isSignUp = false;
   bool _isLoading = false;
+  bool _rememberMe = true;
+  bool _biometricEnabled = false;
+  bool _biometricAvailable = false;
+  String _rememberedPassword = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedLogin();
+  }
+
+  Future<void> _loadRememberedLogin() async {
+    final available = await BiometricAuthService.isAvailable();
+    final saved = await BiometricAuthService.load();
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = available;
+      _rememberMe = saved.remember;
+      _biometricEnabled = available && saved.biometricEnabled;
+      _rememberedPassword = saved.password;
+      if (saved.remember) {
+        _emailCtrl.text = saved.email;
+        _passCtrl.text = saved.password;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -48,20 +75,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         await auth.signInWithEmail(_emailCtrl.text, _passCtrl.text);
       }
 
-      if (mounted) {
-        final pendingInviteCode = await PendingGroupInvite.take();
-        if (pendingInviteCode != null && mounted) {
-          context.go('/join/$pendingInviteCode');
-          return;
-        }
-        final needsProfileName = await _needsProfileName();
-        if (mounted) context.go(needsProfileName ? '/profile' : '/fixture');
+      if (!_isSignUp && _rememberMe) {
+        await BiometricAuthService.save(
+          email: _emailCtrl.text,
+          password: _passCtrl.text,
+          biometricEnabled: _biometricEnabled,
+        );
+      } else if (!_isSignUp) {
+        await BiometricAuthService.clear();
       }
+
+      await _continueAfterLogin();
     } catch (e) {
       if (mounted) _showError(e);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    if (_rememberedPassword.isEmpty || _emailCtrl.text.trim().isEmpty) {
+      _showError('Primero iniciá sesión y activá Recordarme en este dispositivo');
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      if (!await BiometricAuthService.authenticate()) return;
+      await ref
+          .read(authControllerProvider)
+          .signInWithEmail(_emailCtrl.text, _rememberedPassword);
+      await _continueAfterLogin();
+    } catch (e) {
+      if (mounted) _showError(e);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _continueAfterLogin() async {
+    if (!mounted) return;
+    final pendingInviteCode = await PendingGroupInvite.take();
+    if (pendingInviteCode != null && mounted) {
+      context.go('/join/$pendingInviteCode');
+      return;
+    }
+    final needsProfileName = await _needsProfileName();
+    if (mounted) context.go(needsProfileName ? '/profile' : '/fixture');
   }
 
   void _showError(dynamic e) {
@@ -208,6 +267,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                   ),
+                  if (!_isSignUp) ...[
+                    CheckboxListTile(
+                      value: _rememberMe,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Recordarme en este dispositivo'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value ?? false;
+                          if (!_rememberMe) _biometricEnabled = false;
+                        });
+                      },
+                    ),
+                    if (_biometricAvailable)
+                      SwitchListTile(
+                        value: _biometricEnabled,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Usar acceso biométrico'),
+                        secondary: const Icon(Icons.fingerprint),
+                        onChanged: _rememberMe
+                            ? (value) =>
+                                  setState(() => _biometricEnabled = value)
+                            : null,
+                      ),
+                  ],
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _submit,
@@ -225,6 +309,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: const TextStyle(fontSize: 16),
                           ),
                   ),
+                  if (!_isSignUp &&
+                      _biometricAvailable &&
+                      _biometricEnabled) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _loginWithBiometrics,
+                      icon: const Icon(Icons.fingerprint),
+                      label: const Text('Ingresar con biometría'),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   TextButton(
                     onPressed: () {

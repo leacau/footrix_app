@@ -49,9 +49,13 @@ export async function processFinishedMatchPoints(
 		return { updatedCount: 0, totalDelta: 0 };
 	}
 
-	const batch = db.batch();
+	const writer = db.bulkWriter();
 	let updatedCount = 0;
 	let totalDelta = 0;
+	const userDeltas = new Map<
+		string,
+		{ total: number; leagues: Map<string, number> }
+	>();
 
 	for (const doc of predictionsSnap.docs) {
 		const prediction = doc.data();
@@ -75,32 +79,46 @@ export async function processFinishedMatchPoints(
 				: 0;
 		const delta = newPoints - previousPoints;
 
-		batch.update(doc.ref, {
+		writer.update(doc.ref, {
 			pointsEarned: newPoints,
 			status: 'graded',
 			gradedAt: admin.firestore.FieldValue.serverTimestamp(),
 			pointsCalculationVersion: 2,
+			suppressPointsNotification: false,
 		});
 
 		if (delta !== 0) {
-			const userRef = db.collection('users').doc(userId);
-			const updateData: admin.firestore.UpdateData<admin.firestore.DocumentData> =
-				{
-					totalPoints: admin.firestore.FieldValue.increment(delta),
-					updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-				};
+			const current = userDeltas.get(userId) ?? {
+				total: 0,
+				leagues: new Map<string, number>(),
+			};
+			current.total += delta;
 			if (typeof match.leagueId === 'string' && match.leagueId.length > 0) {
-				updateData[`leagueStats.${match.leagueId}.points`] =
-					admin.firestore.FieldValue.increment(delta);
+				current.leagues.set(
+					match.leagueId,
+					(current.leagues.get(match.leagueId) ?? 0) + delta,
+				);
 			}
-			batch.set(userRef, updateData, { merge: true });
+			userDeltas.set(userId, current);
 			totalDelta += delta;
 		}
 
 		updatedCount++;
 	}
 
-	await batch.commit();
+	for (const [userId, delta] of userDeltas.entries()) {
+		const updateData: admin.firestore.UpdateData<admin.firestore.DocumentData> =
+			{
+				totalPoints: admin.firestore.FieldValue.increment(delta.total),
+				updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+			};
+		for (const [leagueId, leagueDelta] of delta.leagues.entries()) {
+			updateData[`leagueStats.${leagueId}.points`] =
+				admin.firestore.FieldValue.increment(leagueDelta);
+		}
+		writer.set(db.collection('users').doc(userId), updateData, { merge: true });
+	}
+	await writer.close();
 	console.log(
 		`Processed ${updatedCount} predictions for ${matchId}, points delta=${totalDelta}`,
 	);

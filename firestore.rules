@@ -17,10 +17,6 @@ service cloud.firestore {
         'displayName',
         'photoURL',
         'totalPoints',
-        'triviaPoints',
-        'triviaStreak',
-        'triviaBestStreak',
-        'triviaAnswered',
         'createdAt',
         'updatedAt',
         'country',
@@ -42,11 +38,7 @@ service cloud.firestore {
         && request.resource.data.uid == userId
         && request.resource.data.totalPoints == 0
         && (!('isActive' in request.resource.data) || request.resource.data.isActive == true)
-        && (!('privateGroups' in request.resource.data) || request.resource.data.privateGroups == [])
-        && (!('triviaPoints' in request.resource.data) || request.resource.data.triviaPoints == 0)
-        && (!('triviaStreak' in request.resource.data) || request.resource.data.triviaStreak == 0)
-        && (!('triviaBestStreak' in request.resource.data) || request.resource.data.triviaBestStreak == 0)
-        && (!('triviaAnswered' in request.resource.data) || request.resource.data.triviaAnswered == 0);
+        && (!('privateGroups' in request.resource.data) || request.resource.data.privateGroups == []);
       allow update: if isOwner(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userEditableFields());
       allow delete: if false;
@@ -102,14 +94,5 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /trivia_questions/{questionId} {
-      allow read: if signedIn() && !resource.data.keys().hasAny(['correctAnswer']);
-      allow write: if false;
-    }
-
-    match /trivia_answers/{answerId} {
-      allow read: if signedIn() && request.auth.uid == resource.data.userId;
-      allow write: if false;
-    }
   }
 }

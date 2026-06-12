@@ -452,15 +452,31 @@ export async function updateWorldCupScoreForUser(
 	}
 
 	let knockoutPoints = 0;
-	for (const matchDoc of matchDocs) {
-		const match = matchDoc.data();
-		if (match.status !== 'finished') continue;
-		const number = matchNumber(match);
-		if (number == null || number < 73 || number === 103) continue;
-		const predictedWinner = predicted.winnersByMatchNumber.get(number);
-		const actualWinner = actual.winnersByMatchNumber.get(number);
-		if (predictedWinner && actualWinner && predictedWinner === actualWinner) {
-			knockoutPoints += 5;
+	const knockoutRounds = [
+		[73, 88],
+		[89, 96],
+		[97, 100],
+		[101, 102],
+		[104, 104],
+	] as const;
+	for (const [firstMatch, lastMatch] of knockoutRounds) {
+		const roundFinished = matchDocs
+			.filter((doc) => {
+				const number = matchNumber(doc.data());
+				return number != null && number >= firstMatch && number <= lastMatch;
+			})
+			.every((doc) => doc.data().status === 'finished');
+		if (!roundFinished) continue;
+		const actualWinners = new Set<string>();
+		const predictedWinners = new Set<string>();
+		for (let number = firstMatch; number <= lastMatch; number++) {
+			const actualWinner = actual.winnersByMatchNumber.get(number);
+			const predictedWinner = predicted.winnersByMatchNumber.get(number);
+			if (actualWinner) actualWinners.add(actualWinner);
+			if (predictedWinner) predictedWinners.add(predictedWinner);
+		}
+		for (const team of predictedWinners) {
+			if (actualWinners.has(team)) knockoutPoints += 5;
 		}
 	}
 
@@ -495,6 +511,25 @@ export async function recalculateWorldCupUserScore(userId: string) {
 		new Set(matches.map((matchDoc) => matchDoc.id)),
 	);
 	await updateWorldCupScoreForUser(userId, matches, predictions);
+}
+
+export async function recalculateAllWorldCupScores(): Promise<number> {
+	const matches = await worldCupMatches();
+	const predictionsSnap = await admin
+		.firestore()
+		.collection('world_cup_predictions')
+		.get();
+	const validMatchIds = new Set(matches.map((matchDoc) => matchDoc.id));
+	let updated = 0;
+	for (const doc of predictionsSnap.docs) {
+		const predictions = sanitizePredictions(
+			doc.data().matchPredictions ?? {},
+			validMatchIds,
+		);
+		await updateWorldCupScoreForUser(doc.id, matches, predictions);
+		updated++;
+	}
+	return updated;
 }
 
 export const saveWorldCupPredictions = functions.https.onCall(
@@ -555,23 +590,24 @@ export const recalculateWorldCupScores = functions
 	.runWith({ timeoutSeconds: 540 })
 	.https.onCall(async (_data, context) => {
 		requireAdmin(context);
-		const matches = await worldCupMatches();
-		const predictionsSnap = await admin
-			.firestore()
-			.collection('world_cup_predictions')
-			.get();
-
-		let updated = 0;
-		for (const doc of predictionsSnap.docs) {
-			const data = doc.data();
-			const raw = data.matchPredictions ?? {};
-			const predictions = sanitizePredictions(
-				raw,
-				new Set(matches.map((matchDoc) => matchDoc.id)),
-			);
-			await updateWorldCupScoreForUser(doc.id, matches, predictions);
-			updated++;
-		}
-
+		const updated = await recalculateAllWorldCupScores();
 		return { success: true, updated };
+	});
+
+export const recalculateWorldCupScoresOnResult = functions
+	.runWith({ timeoutSeconds: 540 })
+	.firestore.document('matches/{matchId}')
+	.onUpdate(async (change) => {
+		const before = change.before.data();
+		const after = change.after.data();
+		if (!isWorldCupMatch(after) || after.status !== 'finished') return null;
+		const becameFinished = before.status !== 'finished';
+		const scoreChanged =
+			before.homeScore !== after.homeScore ||
+			before.awayScore !== after.awayScore ||
+			before.winnerTeamId !== after.winnerTeamId;
+		if (!becameFinished && !scoreChanged) return null;
+		const updated = await recalculateAllWorldCupScores();
+		console.log(`World Cup scores recalculated for ${updated} users`);
+		return { updated };
 	});

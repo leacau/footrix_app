@@ -64,10 +64,6 @@ class AuthController {
       'displayName': displayName.trim(),
       'photoURL': user.photoURL,
       'totalPoints': 0,
-      'triviaPoints': 0,
-      'triviaStreak': 0,
-      'triviaBestStreak': 0,
-      'triviaAnswered': 0,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'country': null,
@@ -121,10 +117,6 @@ class AuthController {
       patch['photoURL'] = user.photoURL;
     }
     if (data?['totalPoints'] is! int) patch['totalPoints'] = 0;
-    if (data?['triviaPoints'] is! int) patch['triviaPoints'] = 0;
-    if (data?['triviaStreak'] is! int) patch['triviaStreak'] = 0;
-    if (data?['triviaBestStreak'] is! int) patch['triviaBestStreak'] = 0;
-    if (data?['triviaAnswered'] is! int) patch['triviaAnswered'] = 0;
     if (data == null || !data.containsKey('country')) patch['country'] = null;
     if (data == null || !data.containsKey('province')) patch['province'] = null;
     if (data == null || !data.containsKey('city')) patch['city'] = null;

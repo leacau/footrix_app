@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum RankingScope { global, country, province, city }
 
-enum RankingType { predictions, trivia, combined }
+enum RankingType { predictions }
 
 enum RankingMode { points, average }
 
@@ -58,7 +58,6 @@ final rankingProvider =
                     'id': memberId,
                     'displayName': 'Anónimo',
                     'totalPoints': 0,
-                    'triviaPoints': 0,
                   });
                 }
               }
@@ -187,26 +186,12 @@ int _getPoints(Map<String, dynamic> user, RankingType type, dynamic leagues) {
     for (var lid in leagueIds) {
       final leagueData = leagueStats[lid];
       if (leagueData != null) {
-        if (type == RankingType.predictions || type == RankingType.combined) {
-          total += (leagueData['points'] as int? ?? 0);
-        }
-        if (type == RankingType.trivia || type == RankingType.combined) {
-          total += (leagueData['triviaPoints'] as int? ?? 0);
-        }
+        total += (leagueData['points'] as int? ?? 0);
       }
     }
     return total;
   }
 
   // Lógica global sin ligas
-  switch (type) {
-    case RankingType.predictions:
-      return user['totalPoints'] as int? ?? 0;
-    case RankingType.trivia:
-      return user['triviaPoints'] as int? ?? 0;
-    case RankingType.combined:
-      final pred = user['totalPoints'] as int? ?? 0;
-      final trivia = user['triviaPoints'] as int? ?? 0;
-      return pred + trivia;
-  }
+  return user['totalPoints'] as int? ?? 0;
 }

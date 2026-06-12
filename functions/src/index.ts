@@ -12,8 +12,6 @@ export { calculatePointsOnMatchFinish } from './calculatePointsOnMatchFinish';
 export { validatePredictionEdit } from './validatePredictionEdit';
 export { notifyOnPointsAssigned } from './notifyOnPointsAssigned';
 export { notifyOnGroupInvite } from './notifyOnGroupInvite';
-export { awardTriviaPoints } from './awardTriviaPoints';
-export { getTriviaQuestions, submitTriviaAnswer } from './triviaActions';
 export {
 	createGroup,
 	deleteGroup,
@@ -26,8 +24,16 @@ export { remindAnonymousUsersToCompleteProfile } from './anonymousProfileReminde
 export { getRankingPredictionCounts } from './rankingActions';
 export {
 	recalculateWorldCupScores,
+	recalculateWorldCupScoresOnResult,
 	saveWorldCupPredictions,
 } from './worldCupActions';
+export {
+	adminDeletePredictions,
+	adminListPredictions,
+	adminUpdatePrediction,
+	adminUpdatePredictionPermissions,
+	adminUpdateUserPoints,
+} from './adminPredictionActions';
 export {
 	adminCreateMatch,
 	adminFinishMatch,
@@ -35,7 +41,6 @@ export {
 	adminSyncAndRecalculateRecentPoints,
 	adminToggleUserStatus,
 	adminUpdatePredictionSettings,
-	adminUpdateTriviaSettings,
 } from './adminActions';
 
 // ==========================================
@@ -44,6 +49,10 @@ export {
 export { syncFixturesDaily } from './syncFixturesDaily';
 export { syncFixturesNow, refreshLeagueCatalog } from './syncFixturesDaily';
 export { pollMatchResults } from './pollMatchResults';
+export {
+	notifyOnMatchGoal,
+	sendUpcomingMatchReminders,
+} from './matchNotifications';
 
 // ==========================================
 // Función de salud para debug (con tipos explícitos)

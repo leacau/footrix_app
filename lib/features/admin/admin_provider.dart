@@ -92,9 +92,70 @@ class AdminController {
     });
   }
 
-  Future<void> updateTriviaSettings(int dailyQuestionLimit) async {
-    await _functions.httpsCallable('adminUpdateTriviaSettings').call({
-      'dailyQuestionLimit': dailyQuestionLimit,
+  Future<List<Map<String, dynamic>>> listPredictions({
+    String? userId,
+    String? leagueId,
+    String mode = 'all',
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final result = await _functions.httpsCallable('adminListPredictions').call({
+      if (userId != null && userId.isNotEmpty) 'userId': userId,
+      if (leagueId != null && leagueId.isNotEmpty) 'leagueId': leagueId,
+      'mode': mode,
+      if (from != null) 'fromMillis': from.millisecondsSinceEpoch,
+      if (to != null) 'toMillis': to.millisecondsSinceEpoch,
+    });
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return (data['rows'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
+  Future<int> deletePredictions(List<String> ids) async {
+    final result = await _functions
+        .httpsCallable('adminDeletePredictions')
+        .call({'ids': ids});
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return data['deleted'] as int? ?? 0;
+  }
+
+  Future<void> updatePrediction({
+    required String id,
+    required int homeGuess,
+    required int awayGuess,
+  }) async {
+    await _functions.httpsCallable('adminUpdatePrediction').call({
+      'id': id,
+      'homeGuess': homeGuess,
+      'awayGuess': awayGuess,
+    });
+  }
+
+  Future<void> updateUserPoints({
+    required String userId,
+    required String mode,
+    required String operation,
+    required int value,
+  }) async {
+    await _functions.httpsCallable('adminUpdateUserPoints').call({
+      'userId': userId,
+      'mode': mode,
+      'operation': operation,
+      'value': value,
+    });
+  }
+
+  Future<void> updatePredictionPermissions({
+    required String userId,
+    required bool blocked,
+    required bool bypassLocks,
+  }) async {
+    await _functions.httpsCallable('adminUpdatePredictionPermissions').call({
+      'userId': userId,
+      'blocked': blocked,
+      'bypassLocks': bypassLocks,
     });
   }
 }

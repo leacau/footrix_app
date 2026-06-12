@@ -71,9 +71,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get fixture => 'Fixture';
 
   @override
-  String get trivia => 'Trivia';
-
-  @override
   String get groups => 'Grupos';
 
   @override
@@ -124,9 +121,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get join => 'Unirse';
 
   @override
-  String get play => 'Jugar';
-
-  @override
   String get all => 'Todas';
 
   @override
@@ -159,9 +153,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get fixtureSubtitle => 'Predice partidos';
 
   @override
-  String get triviaSubtitle => 'Preguntas rápidas';
-
-  @override
   String get groupsSubtitle => 'Competí con amigos';
 
   @override
@@ -186,9 +177,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get points => 'Puntos';
 
   @override
-  String get streak => 'Racha';
-
-  @override
   String get leaguesToPlay => 'Ligas para jugar';
 
   @override
@@ -210,18 +198,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get totalPoints => 'Puntos totales';
-
-  @override
-  String get triviaPoints => 'Puntos trivia';
-
-  @override
-  String get currentStreak => 'Racha actual';
-
-  @override
-  String get bestStreak => 'Mejor racha';
-
-  @override
-  String get answeredQuestions => 'Preguntas respondidas';
 
   @override
   String get location => 'Ubicación';
@@ -309,12 +285,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get clearFilters => 'Limpiar filtros';
 
   @override
-  String get type => 'Tipo:';
-
-  @override
-  String get combined => 'Combinado';
-
-  @override
   String get worldwide => 'Mundial';
 
   @override
@@ -373,12 +343,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get predictionLockHelper => 'Usa 0 para aceptar hasta la hora de inicio.';
 
   @override
-  String get triviaSettings => 'Trivia';
-
-  @override
-  String get triviaDailyLimitLabel => 'Preguntas por usuario por día';
-
-  @override
   String get saveSettings => 'Guardar ajustes';
 
   @override
@@ -427,34 +391,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get noSchedule => 'Sin horario';
-
-  @override
-  String get footballTrivia => 'Trivia Fútbol';
-
-  @override
-  String get noQuestionsAvailable => 'No hay preguntas disponibles';
-
-  @override
-  String secondsLeft(int seconds) {
-    return '$seconds segundos';
-  }
-
-  @override
-  String get timeUp => 'Tiempo agotado';
-
-  @override
-  String get alreadyAnsweredQuestion => 'Ya habías respondido esta pregunta';
-
-  @override
-  String correctPoints(int points) {
-    return 'Correcto: +$points pts';
-  }
-
-  @override
-  String get incorrect => 'Incorrecto';
-
-  @override
-  String get nextQuestion => 'Siguiente pregunta';
 
   @override
   String get moreOptions => 'Más opciones';

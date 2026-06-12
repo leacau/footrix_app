@@ -14,7 +14,6 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
 
 class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   RankingScope _scope = RankingScope.global;
-  RankingType _type = RankingType.predictions;
   final _filterCtrl = TextEditingController();
   String? _selectedLeagueId;
   String? _selectedGroupId;
@@ -32,7 +31,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       rankingProvider((
         scope: _scope,
         filter: _filterCtrl.text.isEmpty ? null : _filterCtrl.text,
-        type: _type,
+        type: RankingType.predictions,
         leagueId: _selectedLeagueId,
         groupId: _selectedGroupId,
       )),
@@ -71,38 +70,6 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        l10n.type,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: DropdownButton<RankingType>(
-                          value: _type,
-                          isExpanded: true,
-                          items: RankingType.values.map((t) {
-                            final label = t == RankingType.predictions
-                                ? l10n.predictions
-                                : t == RankingType.trivia
-                                ? l10n.trivia
-                                : l10n.combined;
-                            return DropdownMenuItem(
-                              value: t,
-                              child: Text(label),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null && context.mounted) {
-                              setState(() => _type = value);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Text(

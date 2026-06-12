@@ -21,6 +21,10 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
   Widget build(BuildContext context) {
     final matchesAsync = ref.watch(worldCupMatchesProvider);
     final predictionAsync = ref.watch(worldCupPredictionProvider);
+    final permissions =
+        ref.watch(currentPredictionPermissionsProvider).valueOrNull ?? const {};
+    final blocked = permissions['blocked'] == true;
+    final bypassLocks = permissions['bypassLocks'] == true;
 
     return DefaultTabController(
       length: 4,
@@ -57,6 +61,8 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
                   matches: groupMatches,
                   drafts: _drafts,
                   saving: _saving,
+                  blocked: blocked,
+                  bypassLocks: bypassLocks,
                   onChanged: (matchId, draft) {
                     setState(() => _drafts[matchId] = draft);
                   },
@@ -71,6 +77,8 @@ class _WorldCupScreenState extends ConsumerState<WorldCupScreen> {
                   bracket: bracket,
                   drafts: _drafts,
                   saving: _saving,
+                  blocked: blocked,
+                  bypassLocks: bypassLocks,
                   onChanged: (matchId, draft) {
                     setState(() => _drafts[matchId] = draft);
                   },
@@ -137,6 +145,8 @@ class _PredictionsTab extends StatelessWidget {
   final List<WorldCupMatch> matches;
   final Map<String, _DraftPick> drafts;
   final bool saving;
+  final bool blocked;
+  final bool bypassLocks;
   final void Function(String matchId, _DraftPick draft) onChanged;
   final Future<void> Function(String matchId, _DraftPick draft) onSaveMatch;
 
@@ -144,6 +154,8 @@ class _PredictionsTab extends StatelessWidget {
     required this.matches,
     required this.drafts,
     required this.saving,
+    required this.blocked,
+    required this.bypassLocks,
     required this.onChanged,
     required this.onSaveMatch,
   });
@@ -163,7 +175,7 @@ class _PredictionsTab extends StatelessWidget {
     }
 
     final firstKickoff = _firstKickoff(matches);
-    final locked = _isWorldCupLocked(matches);
+    final locked = blocked || (!bypassLocks && _isWorldCupLocked(matches));
 
     return Column(
       children: [
@@ -260,6 +272,8 @@ class _KnockoutTab extends StatelessWidget {
   final _BracketSimulation bracket;
   final Map<String, _DraftPick> drafts;
   final bool saving;
+  final bool blocked;
+  final bool bypassLocks;
   final void Function(String matchId, _DraftPick draft) onChanged;
   final Future<void> Function(String matchId, _DraftPick draft) onSaveMatch;
 
@@ -268,6 +282,8 @@ class _KnockoutTab extends StatelessWidget {
     required this.bracket,
     required this.drafts,
     required this.saving,
+    required this.blocked,
+    required this.bypassLocks,
     required this.onChanged,
     required this.onSaveMatch,
   });
@@ -286,7 +302,10 @@ class _KnockoutTab extends StatelessWidget {
       );
     }
     final firstKickoff = _firstKickoff([...bracket.groupMatches, ...matches]);
-    final locked = _isWorldCupLocked([...bracket.groupMatches, ...matches]);
+    final locked =
+        blocked ||
+        (!bypassLocks &&
+            _isWorldCupLocked([...bracket.groupMatches, ...matches]));
     final byStage = <String, List<WorldCupMatch>>{};
     for (final match in matches) {
       byStage.putIfAbsent(match.stageName, () => []).add(match);

@@ -2,6 +2,8 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { processFinishedMatchPoints } from './calculatePointsOnMatchFinish';
 import { syncFifaMatches } from './fifaApi';
+import { recalculateNormalUserPoints } from './adminPredictionActions';
+import { recalculateAllWorldCupScores } from './worldCupActions';
 
 function requireAdmin(context: functions.https.CallableContext): void {
 	if (!context.auth) {
@@ -166,29 +168,6 @@ export const adminUpdatePredictionSettings = functions.https.onCall(
 	},
 );
 
-export const adminUpdateTriviaSettings = functions.https.onCall(
-	async (data, context) => {
-		requireAdmin(context);
-		const dailyQuestionLimit = readIntInRange(
-			data.dailyQuestionLimit,
-			'Preguntas por dia',
-			1,
-			100,
-		);
-
-		await admin.firestore().collection('app_config').doc('trivia').set(
-			{
-				dailyQuestionLimit,
-				updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-				updatedBy: context.auth!.uid,
-			},
-			{ merge: true },
-		);
-
-		return { success: true, dailyQuestionLimit };
-	},
-);
-
 function addDays(date: Date, days: number): Date {
 	const copy = new Date(date);
 	copy.setUTCDate(copy.getUTCDate() + days);
@@ -232,6 +211,11 @@ export const adminSyncAndRecalculateRecentPoints = functions
 			predictionsProcessed += result.updatedCount;
 			totalDelta += result.totalDelta;
 		}
+		const users = await db.collection('users').get();
+		for (const user of users.docs) {
+			await recalculateNormalUserPoints(user.id);
+		}
+		const worldCupUsersRecalculated = await recalculateAllWorldCupScores();
 
 		return {
 			success: true,
@@ -242,6 +226,8 @@ export const adminSyncAndRecalculateRecentPoints = functions
 			matchesRecalculated: finishedMatches.size,
 			predictionsProcessed,
 			totalDelta,
+			usersRecalculated: users.size,
+			worldCupUsersRecalculated,
 		};
 	});
 
@@ -275,14 +261,6 @@ export const adminRepairUserDocuments = functions
 				}
 				if (!existing?.photoURL && user.photoURL) patch.photoURL = user.photoURL;
 				if (typeof existing?.totalPoints !== 'number') patch.totalPoints = 0;
-				if (typeof existing?.triviaPoints !== 'number') patch.triviaPoints = 0;
-				if (typeof existing?.triviaStreak !== 'number') patch.triviaStreak = 0;
-				if (typeof existing?.triviaBestStreak !== 'number') {
-					patch.triviaBestStreak = 0;
-				}
-				if (typeof existing?.triviaAnswered !== 'number') {
-					patch.triviaAnswered = 0;
-				}
 				if (!('country' in (existing ?? {}))) patch.country = null;
 				if (!('province' in (existing ?? {}))) patch.province = null;
 				if (!('city' in (existing ?? {}))) patch.city = null;
